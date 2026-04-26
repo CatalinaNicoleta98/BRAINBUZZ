@@ -35,6 +35,7 @@ export interface RoomState {
   players: Array<{
     id: string;
     displayName: string;
+    avatarId: string;
     score: number;
     correctAnswers: number;
     connected: boolean;
@@ -66,6 +67,7 @@ export interface LeaderboardEntry {
   rank: number;
   playerId: string;
   displayName: string;
+  avatarId?: string;
   score: number;
   correctAnswers: number;
   connected: boolean;

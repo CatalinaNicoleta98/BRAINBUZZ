@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
+import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { SectionHeading } from "../../shared/components/SectionHeading";
 import { socket } from "../../shared/socket/socketClient";
@@ -83,9 +84,12 @@ export function HostLobbyPage() {
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (
               <div key={player.id} className="flex items-center justify-between rounded-2xl bg-slate-950/60 px-4 py-3">
-                <div>
-                  <div className="font-semibold">{player.displayName}</div>
-                  <div className="text-sm text-slate-400">{player.connected ? "Connected" : "Reconnecting"}</div>
+                <div className="flex items-center gap-3">
+                  <AvatarBadge avatarId={player.avatarId} size="sm" />
+                  <div>
+                    <div className="font-semibold">{player.displayName}</div>
+                    <div className="text-sm text-slate-400">{player.connected ? "Connected" : "Reconnecting"}</div>
+                  </div>
                 </div>
                 <div className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-electric">
                   Ready

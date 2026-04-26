@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
+import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { SectionHeading } from "../../shared/components/SectionHeading";
 import { socket } from "../../shared/socket/socketClient";
@@ -63,6 +64,9 @@ export function ResultsPage() {
                   }`}
                 >
                   <div className="text-sm uppercase tracking-[0.3em] text-slate-300">Place {index + 1}</div>
+                  <div className="mt-4 flex justify-center">
+                    <AvatarBadge avatarId={player.avatarId} size="lg" />
+                  </div>
                   <div className="mt-4 font-display text-3xl font-bold">{player.displayName}</div>
                   <div className="mt-2 text-2xl font-bold text-white">{player.score}</div>
                   <div className="text-sm text-slate-300">{player.correctAnswers} correct answers</div>
@@ -76,9 +80,12 @@ export function ResultsPage() {
             <div className="mt-5 space-y-3">
               {room?.players.map((player, index) => (
                 <div key={player.id} className="flex items-center justify-between rounded-2xl bg-slate-950/55 px-4 py-3">
-                  <div>
-                    <div className="text-sm uppercase tracking-[0.25em] text-slate-400">#{index + 1}</div>
-                    <div className="font-semibold">{player.displayName}</div>
+                  <div className="flex items-center gap-3">
+                    <AvatarBadge avatarId={player.avatarId} size="sm" />
+                    <div>
+                      <div className="text-sm uppercase tracking-[0.25em] text-slate-400">#{index + 1}</div>
+                      <div className="font-semibold">{player.displayName}</div>
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="font-display text-2xl">{player.score}</div>

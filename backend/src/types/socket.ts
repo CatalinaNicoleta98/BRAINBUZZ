@@ -1,6 +1,7 @@
 export interface JoinRoomPayload {
   roomPin: string;
   displayName: string;
+  avatarId: string;
   playerId?: string;
 }
 

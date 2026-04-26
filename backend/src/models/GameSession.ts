@@ -4,6 +4,7 @@ const finalPlayerSchema = new Schema(
   {
     playerId: { type: String, required: true },
     displayName: { type: String, required: true },
+    avatarId: { type: String, required: true },
     score: { type: Number, required: true },
     correctAnswers: { type: Number, required: true },
   },

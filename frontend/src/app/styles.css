@@ -35,6 +35,18 @@ body::before {
   mask-image: radial-gradient(circle at center, black 35%, transparent 90%);
 }
 
+body::after {
+  content: "";
+  position: fixed;
+  inset: auto -10vw -20vh auto;
+  height: 40rem;
+  width: 40rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 65%);
+  filter: blur(30px);
+  pointer-events: none;
+}
+
 ::selection {
   background: rgba(94, 234, 212, 0.35);
 }

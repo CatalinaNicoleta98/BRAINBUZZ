@@ -10,9 +10,23 @@ export function HomePage() {
         <div className="space-y-8">
           <SectionHeading
             eyebrow="BrainBuzz"
-            title="A real-time quiz arena built for speed, tension, and big leaderboard moments."
-            description="Host live rooms, bring players in with a room PIN, and let the server control every second of the game."
+            title="A real-time quiz arena built for speed, drama, and leaderboard chaos."
+            description="Run vivid live quiz sessions with server-owned scoring, instant sockets, reconnect-friendly rooms, and a polished game-show feel on desktop or mobile."
           />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-sm uppercase tracking-[0.28em] text-slate-400">Multiplayer</div>
+              <div className="mt-2 font-display text-3xl">Live</div>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-sm uppercase tracking-[0.28em] text-slate-400">Game State</div>
+              <div className="mt-2 font-display text-3xl">Server-owned</div>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-sm uppercase tracking-[0.28em] text-slate-400">UI</div>
+              <div className="mt-2 font-display text-3xl">Mobile-ready</div>
+            </div>
+          </div>
           <div className="flex flex-col gap-4 sm:flex-row">
             <Link
               to="/host/create"
@@ -31,12 +45,17 @@ export function HomePage() {
 
         <GlassPanel>
           <div className="space-y-5">
-            <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-5">
-              <p className="text-sm uppercase tracking-[0.3em] text-skyglow">Live features</p>
-              <div className="mt-4 grid gap-3 text-sm text-slate-200">
-                <div className="rounded-2xl bg-white/5 p-4">Server-authoritative scoring</div>
-                <div className="rounded-2xl bg-white/5 p-4">Socket-driven lobbies and question flow</div>
-                <div className="rounded-2xl bg-white/5 p-4">Animated leaderboards and podium finish</div>
+            <div className="rounded-[2rem] border border-white/10 bg-slate-950/55 p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-sm uppercase tracking-[0.3em] text-skyglow">Live features</p>
+                <div className="rounded-full bg-electric/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-electric">
+                  Socket ready
+                </div>
+              </div>
+              <div className="mt-5 grid gap-3 text-sm text-slate-200">
+                <div className="rounded-2xl bg-white/5 p-4">Server-authoritative scoring and timers</div>
+                <div className="rounded-2xl bg-white/5 p-4">Responsive host and player flows</div>
+                <div className="rounded-2xl bg-white/5 p-4">Live answer stats, leaderboard, and podium reveal</div>
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
+import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { TimerRing } from "../../shared/components/TimerRing";
 import { socket } from "../../shared/socket/socketClient";
@@ -15,27 +16,36 @@ export function HostGamePage() {
   const [leaderboard, setLeaderboard] = useState<RoundEndPayload["leaderboard"]>([]);
   const [roundEnded, setRoundEnded] = useState(false);
   const [lastResult, setLastResult] = useState<GameEndPayload | null>(null);
-  const [tick, setTick] = useState(Date.now());
-  const [timeoutSentFor, setTimeoutSentFor] = useState<string | null>(null);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setTick(Date.now());
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, []);
 
   useEffect(() => {
     socket.emit("state:sync", { roomPin, role: "host" }, (state: RoomState) => {
       setRoom(state);
+      if (state.status === "finished") {
+        navigate(`/results/${roomPin}`);
+      }
+      if (state.status === "question" && state.currentQuestion?.id && state.timerEndsAt) {
+        setQuestion({
+          roomPin,
+          questionIndex: state.currentQuestionIndex,
+          totalQuestions: state.quiz.questionCount,
+          timerEndsAt: state.timerEndsAt,
+          question: {
+            id: state.currentQuestion.id,
+            prompt: state.currentQuestion.prompt ?? "",
+            options: state.currentQuestion.options,
+            timeLimitSeconds: state.currentQuestion.timeLimitSeconds ?? 15,
+            points: state.currentQuestion.points ?? 0,
+          },
+        });
+      }
     });
 
     const handleStateSync = (state: RoomState) => {
       if (state.roomPin === roomPin) {
         setRoom(state);
+        if (state.status === "finished") {
+          navigate(`/results/${roomPin}`);
+        }
       }
     };
 
@@ -46,7 +56,6 @@ export function HostGamePage() {
       setQuestion(payload);
       setDistribution([]);
       setRoundEnded(false);
-      setTimeoutSentFor(null);
     };
 
     const handleStats = (payload: { distribution: AnswerDistribution[] }) => {
@@ -78,17 +87,6 @@ export function HostGamePage() {
       socket.off("game:end", handleGameEnd);
     };
   }, [navigate, roomPin]);
-
-  useEffect(() => {
-    if (!question || roundEnded) {
-      return;
-    }
-
-    if (tick >= question.timerEndsAt && timeoutSentFor !== question.question.id) {
-      setTimeoutSentFor(question.question.id);
-      socket.emit("question:timeout", roomPin);
-    }
-  }, [question, roundEnded, roomPin, tick, timeoutSentFor]);
 
   const answersReceived = useMemo(
     () => distribution.reduce((sum, item) => sum + item.count, 0),
@@ -138,7 +136,7 @@ export function HostGamePage() {
                 Question {(question?.questionIndex ?? 0) + 1} of {question?.totalQuestions ?? room?.quiz.questionCount ?? 0}
               </p>
             </div>
-            <TimerRing endsAt={question?.timerEndsAt ?? null} />
+            <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
           </div>
 
           <div className="mt-8 grid gap-4">
@@ -180,9 +178,12 @@ export function HostGamePage() {
           <div className="mt-5 space-y-3">
             {(leaderboard.length ? leaderboard : room?.players ?? []).map((entry, index) => (
               <div key={"playerId" in entry ? entry.playerId : entry.id} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
-                <div>
-                  <div className="text-sm uppercase tracking-[0.2em] text-slate-400">#{"rank" in entry ? entry.rank : index + 1}</div>
-                  <div className="font-semibold">{entry.displayName}</div>
+                <div className="flex items-center gap-3">
+                  <AvatarBadge avatarId={"avatarId" in entry && entry.avatarId ? entry.avatarId : "spark"} size="sm" />
+                  <div>
+                    <div className="text-sm uppercase tracking-[0.2em] text-slate-400">#{"rank" in entry ? entry.rank : index + 1}</div>
+                    <div className="font-semibold">{entry.displayName}</div>
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="font-display text-2xl">{entry.score}</div>

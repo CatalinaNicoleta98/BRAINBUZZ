@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
+import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { TimerRing } from "../../shared/components/TimerRing";
 import { socket } from "../../shared/socket/socketClient";
@@ -14,15 +15,22 @@ export function PlayerQuestionPage() {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [lockedIn, setLockedIn] = useState(false);
   const [roundEnd, setRoundEnd] = useState<RoundEndPayload | null>(null);
+  const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const session = getPlayerSession();
 
   useEffect(() => {
-    const session = getPlayerSession();
     if (!session || session.roomPin !== roomPin) {
       navigate("/player/join");
       return;
     }
 
     socket.emit("state:sync", { roomPin, role: "player", participantId: session.playerId }, (state: RoomState) => {
+      if (state.status === "finished") {
+        navigate(`/results/${roomPin}`);
+        return;
+      }
+
       if (state.status !== "question" || !state.currentQuestion?.id || !state.timerEndsAt) {
         return;
       }
@@ -50,39 +58,52 @@ export function PlayerQuestionPage() {
       setSelectedOptionId(null);
       setLockedIn(false);
       setRoundEnd(null);
+      setPendingOptionId(null);
+      setError("");
     };
 
     const handleAnswerReceived = (payload: { optionId: string }) => {
       setSelectedOptionId(payload.optionId);
       setLockedIn(true);
+      setPendingOptionId(null);
     };
 
     const handleQuestionEnd = (payload: RoundEndPayload) => {
       setRoundEnd(payload);
+      setPendingOptionId(null);
     };
 
     const handleGameEnd = (payload: GameEndPayload) => {
       navigate(`/results/${payload.roomPin}`);
     };
 
+    const handleSocketError = (payload: { message: string }) => {
+      setError(payload.message);
+      setPendingOptionId(null);
+    };
+
     socket.on("question:show", handleQuestionShow);
     socket.on("answer:received", handleAnswerReceived);
     socket.on("question:end", handleQuestionEnd);
     socket.on("game:end", handleGameEnd);
+    socket.on("error", handleSocketError);
 
     return () => {
       socket.off("question:show", handleQuestionShow);
       socket.off("answer:received", handleAnswerReceived);
       socket.off("question:end", handleQuestionEnd);
       socket.off("game:end", handleGameEnd);
+      socket.off("error", handleSocketError);
     };
-  }, [navigate, roomPin]);
+  }, [navigate, roomPin, session]);
 
   function submitAnswer(optionId: string) {
-    if (!question || lockedIn) {
+    if (!question || lockedIn || pendingOptionId) {
       return;
     }
 
+    setError("");
+    setPendingOptionId(optionId);
     socket.emit("answer:submit", {
       roomPin,
       questionId: question.question.id,
@@ -99,15 +120,31 @@ export function PlayerQuestionPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.35em] text-berry">Question Live</p>
               <h1 className="mt-3 font-display text-4xl font-bold">{question?.question.prompt ?? "Waiting for the host..."}</h1>
               <p className="mt-3 text-slate-300">
-                {lockedIn ? "Answer locked in. Hold tight for the reveal." : "Choose quickly. Faster correct answers score higher."}
+                {lockedIn
+                  ? "Answer locked in. Hold tight for the reveal."
+                  : pendingOptionId
+                    ? "Sending your answer..."
+                    : "Choose quickly. Faster correct answers score higher."}
               </p>
             </div>
-            <TimerRing endsAt={question?.timerEndsAt ?? null} />
+            <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
           </div>
+
+          {session ? (
+            <div className="mt-6 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/5 p-4">
+              <AvatarBadge avatarId={session.avatarId} />
+              <div>
+                <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Playing as</div>
+                <div className="font-semibold text-white">{session.displayName}</div>
+              </div>
+            </div>
+          ) : null}
+
+          {error ? <div className="mt-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {question?.question.options.map((option, index) => {
-              const isSelected = selectedOptionId === option.id;
+              const isSelected = selectedOptionId === option.id || pendingOptionId === option.id;
               const isCorrectReveal = roundEnd?.question.correctOptionId === option.id;
 
               return (
@@ -115,7 +152,7 @@ export function PlayerQuestionPage() {
                   key={option.id}
                   type="button"
                   onClick={() => submitAnswer(option.id)}
-                  disabled={lockedIn || !!roundEnd}
+                  disabled={lockedIn || !!roundEnd || !!pendingOptionId}
                   className={`rounded-3xl border px-5 py-6 text-left transition ${
                     isCorrectReveal
                       ? "border-electric bg-electric/20"

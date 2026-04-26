@@ -1,15 +1,18 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
+import { AvatarPicker } from "../../shared/components/AvatarPicker";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { SectionHeading } from "../../shared/components/SectionHeading";
 import { socket } from "../../shared/socket/socketClient";
 import { savePlayerSession } from "../../shared/utils/storage";
+import { avatarOptions } from "../../shared/utils/avatars";
 
 export function PlayerJoinPage() {
   const navigate = useNavigate();
   const [roomPin, setRoomPin] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [avatarId, setAvatarId] = useState(avatarOptions[0].id);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,12 +28,13 @@ export function PlayerJoinPage() {
     };
 
     socket.on("error", handleSocketError);
-    socket.emit("room:join", { roomPin, displayName }, (response: { playerId: string; room: { roomPin: string } }) => {
+    socket.emit("room:join", { roomPin, displayName, avatarId }, (response: { playerId: string; room: { roomPin: string } }) => {
       socket.off("error", handleSocketError);
       savePlayerSession({
         roomPin: response.room.roomPin,
         playerId: response.playerId,
         displayName,
+        avatarId,
       });
       navigate(`/player/lobby/${response.room.roomPin}`);
       setLoading(false);
@@ -66,6 +70,10 @@ export function PlayerJoinPage() {
                 placeholder="Team Rocket"
                 required
               />
+            </div>
+            <div>
+              <label className="mb-3 block text-sm font-semibold text-slate-200">Pick an avatar</label>
+              <AvatarPicker selectedAvatarId={avatarId} onSelect={setAvatarId} />
             </div>
             {error ? <p className="text-sm text-rose-300">{error}</p> : null}
             <button

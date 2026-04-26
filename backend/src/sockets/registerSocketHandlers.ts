@@ -9,6 +9,7 @@ import {
   markParticipantDisconnected,
   nextQuestion,
   reconnectHost,
+  scheduleRoundTimeout,
   startGame,
   submitAnswer,
 } from "../services/gameService.js";
@@ -33,6 +34,20 @@ async function handleAsync(socket: Socket, work: () => Promise<void>) {
 }
 
 export function registerSocketHandlers(io: Server) {
+  async function finalizeRound(roomPin: string) {
+    const roundResult = await advanceAfterQuestion(roomPin);
+    if (!roundResult) {
+      return;
+    }
+
+    io.to(roomPin).emit("question:end", roundResult.payload);
+    io.to(roomPin).emit("leaderboard:update", roundResult.payload.leaderboard);
+    if (roundResult.type === "game:end") {
+      io.to(roomPin).emit("game:end", roundResult.payload);
+    }
+    io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
+  }
+
   io.on("connection", (socket) => {
     socket.on("room:create", (payload: CreateRoomPayload, callback?: (response: unknown) => void) => {
       void handleAsync(socket, async () => {
@@ -47,7 +62,7 @@ export function registerSocketHandlers(io: Server) {
 
     socket.on("room:join", (payload: JoinRoomPayload, callback?: (response: unknown) => void) => {
       void handleAsync(socket, async () => {
-        const result = await joinRoom(payload.roomPin, payload.displayName, socket.id, payload.playerId);
+        const result = await joinRoom(payload.roomPin, payload.displayName, payload.avatarId, socket.id, payload.playerId);
         socket.data.role = "player";
         socket.data.roomPin = payload.roomPin;
         socket.data.playerId = result.playerId;
@@ -87,7 +102,7 @@ export function registerSocketHandlers(io: Server) {
           throw new HttpError(404, "Player not found for reconnect.");
         }
 
-        const result = await joinRoom(payload.roomPin, participant.displayName, socket.id, payload.participantId);
+        const result = await joinRoom(payload.roomPin, participant.displayName, participant.avatarId, socket.id, payload.participantId);
         socket.data.role = "player";
         socket.data.roomPin = payload.roomPin;
         socket.data.playerId = result.playerId;
@@ -100,6 +115,7 @@ export function registerSocketHandlers(io: Server) {
     socket.on("game:start", (roomPin: string) => {
       void handleAsync(socket, async () => {
         const questionState = await startGame(roomPin);
+        scheduleRoundTimeout(roomPin, finalizeRound);
         io.to(roomPin).emit("game:start", { roomPin });
         io.to(roomPin).emit("question:show", questionState);
         io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
@@ -109,6 +125,7 @@ export function registerSocketHandlers(io: Server) {
     socket.on("game:next", (roomPin: string) => {
       void handleAsync(socket, async () => {
         const questionState = await nextQuestion(roomPin);
+        scheduleRoundTimeout(roomPin, finalizeRound);
         io.to(roomPin).emit("question:show", questionState);
         io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
       });
@@ -132,26 +149,14 @@ export function registerSocketHandlers(io: Server) {
         const room = getRoom(payload.roomPin);
         const currentQuestion = await getCurrentQuestion(payload.roomPin);
         if (room && (stats.answerCount >= room.players.size || Date.now() >= currentQuestion.timerEndsAt)) {
-          const roundResult = await advanceAfterQuestion(payload.roomPin);
-          io.to(payload.roomPin).emit("question:end", roundResult.payload);
-          io.to(payload.roomPin).emit("leaderboard:update", roundResult.payload.leaderboard);
-          if (roundResult.type === "game:end") {
-            io.to(payload.roomPin).emit("game:end", roundResult.payload);
-          }
-          io.to(payload.roomPin).emit("state:sync", await buildRoomState(payload.roomPin));
+          await finalizeRound(payload.roomPin);
         }
       });
     });
 
     socket.on("question:timeout", (roomPin: string) => {
       void handleAsync(socket, async () => {
-        const roundResult = await advanceAfterQuestion(roomPin);
-        io.to(roomPin).emit("question:end", roundResult.payload);
-        io.to(roomPin).emit("leaderboard:update", roundResult.payload.leaderboard);
-        if (roundResult.type === "game:end") {
-          io.to(roomPin).emit("game:end", roundResult.payload);
-        }
-        io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
+        await finalizeRound(roomPin);
       });
     });
 

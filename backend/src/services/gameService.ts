@@ -2,6 +2,7 @@ import { GameSessionModel } from "../models/GameSession.js";
 import { QuizModel } from "../models/Quiz.js";
 import { createId } from "../utils/createId.js";
 import { createPin } from "../utils/createPin.js";
+import { buildRankedLeaderboard, calculateScoreAward } from "../utils/gameMath.js";
 import { HttpError } from "../utils/httpError.js";
 
 type RoomStatus = "lobby" | "question" | "leaderboard" | "finished";
@@ -9,6 +10,7 @@ type RoomStatus = "lobby" | "question" | "leaderboard" | "finished";
 export interface LivePlayer {
   id: string;
   displayName: string;
+  avatarId: string;
   socketId: string;
   score: number;
   correctAnswers: number;
@@ -26,7 +28,9 @@ interface LiveRoom {
   currentQuestionIndex: number;
   players: Map<string, LivePlayer>;
   timerEndsAt?: number;
+  timerHandle?: NodeJS.Timeout;
   answersByQuestion: Map<string, Map<string, AnswerRecord>>;
+  currentRoundClosed: boolean;
 }
 
 interface AnswerRecord {
@@ -83,6 +87,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     currentQuestionIndex: -1,
     players: new Map(),
     answersByQuestion: new Map(),
+    currentRoundClosed: false,
   });
 
   await GameSessionModel.create({
@@ -99,7 +104,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
   };
 }
 
-export async function joinRoom(roomPin: string, displayName: string, socketId: string, playerId?: string) {
+export async function joinRoom(roomPin: string, displayName: string, avatarId: string, socketId: string, playerId?: string) {
   const room = getRoomOrThrow(roomPin);
   const normalizedName = displayName.trim();
 
@@ -115,10 +120,12 @@ export async function joinRoom(roomPin: string, displayName: string, socketId: s
     player.socketId = socketId;
     player.connected = true;
     player.displayName = normalizedName;
+    player.avatarId = avatarId;
   } else {
     player = {
       id: playerId ?? createId("player"),
       displayName: normalizedName,
+      avatarId,
       socketId,
       score: 0,
       correctAnswers: 0,
@@ -212,15 +219,23 @@ export async function submitAnswer(roomPin: string, playerId: string, questionId
     throw new HttpError(400, "Answer window has already closed.");
   }
 
+  if (room.currentRoundClosed) {
+    throw new HttpError(409, "This round has already finished.");
+  }
+
   const questionAnswers = room.answersByQuestion.get(questionId) ?? new Map<string, AnswerRecord>();
   if (questionAnswers.has(playerId)) {
     throw new HttpError(409, "Answer already submitted.");
   }
 
   const isCorrect = question.correctOptionId === optionId;
-  const timeRemainingRatio = Math.max((room.timerEndsAt - now) / (question.timeLimitSeconds * 1000), 0);
-  const speedBonus = Math.round(question.points * 0.5 * timeRemainingRatio);
-  const scoreAwarded = isCorrect ? question.points + speedBonus : 0;
+  const scoreAwarded = calculateScoreAward(
+    question.points,
+    question.timeLimitSeconds,
+    room.timerEndsAt,
+    now,
+    isCorrect,
+  );
 
   if (isCorrect) {
     player.score += scoreAwarded;
@@ -251,6 +266,16 @@ export async function submitAnswer(roomPin: string, playerId: string, questionId
 
 export async function advanceAfterQuestion(roomPin: string) {
   const room = getRoomOrThrow(roomPin);
+  if (room.currentRoundClosed) {
+    return null;
+  }
+
+  room.currentRoundClosed = true;
+  if (room.timerHandle) {
+    clearTimeout(room.timerHandle);
+    room.timerHandle = undefined;
+  }
+
   const quiz = await QuizModel.findById(room.quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
@@ -262,14 +287,7 @@ export async function advanceAfterQuestion(roomPin: string) {
   }
 
   const questionAnswers = room.answersByQuestion.get(question.id) ?? new Map<string, AnswerRecord>();
-  const leaderboard = getSortedPlayers(room.players).map((player, index) => ({
-    rank: index + 1,
-    playerId: player.id,
-    displayName: player.displayName,
-    score: player.score,
-    correctAnswers: player.correctAnswers,
-    connected: player.connected,
-  }));
+  const leaderboard = buildRankedLeaderboard(getSortedPlayers(room.players));
   const distribution = question.options.map((option) => ({
     optionId: option.id,
     text: option.text,
@@ -287,6 +305,7 @@ export async function advanceAfterQuestion(roomPin: string) {
         finalLeaderboard: leaderboard.map((entry) => ({
           playerId: entry.playerId,
           displayName: entry.displayName,
+          avatarId: room.players.get(entry.playerId)?.avatarId ?? "spark",
           score: entry.score,
           correctAnswers: entry.correctAnswers,
         })),
@@ -385,6 +404,7 @@ export async function buildRoomState(roomPin: string) {
     players: getSortedPlayers(room.players).map((player) => ({
       id: player.id,
       displayName: player.displayName,
+      avatarId: player.avatarId,
       score: player.score,
       correctAnswers: player.correctAnswers,
       connected: player.connected,
@@ -405,6 +425,7 @@ export async function buildQuestionState(roomPin: string) {
   }
 
   room.timerEndsAt = Date.now() + question.timeLimitSeconds * 1000;
+  room.currentRoundClosed = false;
 
   return {
     roomPin,
@@ -422,4 +443,20 @@ export async function buildQuestionState(roomPin: string) {
       points: question.points,
     },
   };
+}
+
+export function scheduleRoundTimeout(roomPin: string, onTimeout: (roomPin: string) => Promise<void>) {
+  const room = getRoomOrThrow(roomPin);
+  if (!room.timerEndsAt) {
+    throw new HttpError(400, "Cannot schedule timeout without an active timer.");
+  }
+
+  if (room.timerHandle) {
+    clearTimeout(room.timerHandle);
+  }
+
+  const delay = Math.max(room.timerEndsAt - Date.now(), 0);
+  room.timerHandle = setTimeout(() => {
+    void onTimeout(roomPin);
+  }, delay);
 }
