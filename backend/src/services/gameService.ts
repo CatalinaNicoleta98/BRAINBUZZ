@@ -13,6 +13,7 @@ export interface LivePlayer {
   score: number;
   correctAnswers: number;
   connected: boolean;
+  lastAnswerAt?: number;
 }
 
 interface LiveRoom {
@@ -25,6 +26,15 @@ interface LiveRoom {
   currentQuestionIndex: number;
   players: Map<string, LivePlayer>;
   timerEndsAt?: number;
+  answersByQuestion: Map<string, Map<string, AnswerRecord>>;
+}
+
+interface AnswerRecord {
+  playerId: string;
+  optionId: string;
+  isCorrect: boolean;
+  scoreAwarded: number;
+  answeredAt: number;
 }
 
 const liveRooms = new Map<string, LiveRoom>();
@@ -72,6 +82,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     status: "lobby",
     currentQuestionIndex: -1,
     players: new Map(),
+    answersByQuestion: new Map(),
   });
 
   await GameSessionModel.create({
@@ -122,6 +133,198 @@ export async function joinRoom(roomPin: string, displayName: string, socketId: s
   };
 }
 
+export async function startGame(roomPin: string) {
+  const room = getRoomOrThrow(roomPin);
+  if (room.players.size === 0) {
+    throw new HttpError(400, "At least one player must join before starting.");
+  }
+
+  room.status = "question";
+  room.currentQuestionIndex = 0;
+
+  await GameSessionModel.updateOne(
+    { roomPin },
+    {
+      status: "question",
+      startedAt: new Date(),
+    },
+  );
+
+  return buildQuestionState(roomPin);
+}
+
+export async function nextQuestion(roomPin: string) {
+  const room = getRoomOrThrow(roomPin);
+  room.currentQuestionIndex += 1;
+  room.status = "question";
+  return buildQuestionState(roomPin);
+}
+
+export async function getCurrentQuestion(roomPin: string) {
+  const room = getRoomOrThrow(roomPin);
+  const quiz = await QuizModel.findById(room.quizId).lean();
+  if (!quiz) {
+    throw new HttpError(404, "Quiz not found.");
+  }
+
+  const question = quiz.questions[room.currentQuestionIndex];
+  if (!question || !room.timerEndsAt) {
+    throw new HttpError(400, "No active question.");
+  }
+
+  return {
+    roomPin,
+    questionIndex: room.currentQuestionIndex,
+    totalQuestions: quiz.questions.length,
+    timerEndsAt: room.timerEndsAt,
+    question: {
+      id: question.id,
+      prompt: question.prompt,
+      options: question.options.map((option) => ({
+        id: option.id,
+        text: option.text,
+      })),
+      timeLimitSeconds: question.timeLimitSeconds,
+      points: question.points,
+    },
+  };
+}
+
+export async function submitAnswer(roomPin: string, playerId: string, questionId: string, optionId: string) {
+  const room = getRoomOrThrow(roomPin);
+  const quiz = await QuizModel.findById(room.quizId).lean();
+  if (!quiz) {
+    throw new HttpError(404, "Quiz not found.");
+  }
+
+  const question = quiz.questions[room.currentQuestionIndex];
+  if (!question || question.id !== questionId) {
+    throw new HttpError(400, "That question is no longer active.");
+  }
+
+  const player = room.players.get(playerId);
+  if (!player) {
+    throw new HttpError(404, "Player not found.");
+  }
+
+  const now = Date.now();
+  if (!room.timerEndsAt || now > room.timerEndsAt) {
+    throw new HttpError(400, "Answer window has already closed.");
+  }
+
+  const questionAnswers = room.answersByQuestion.get(questionId) ?? new Map<string, AnswerRecord>();
+  if (questionAnswers.has(playerId)) {
+    throw new HttpError(409, "Answer already submitted.");
+  }
+
+  const isCorrect = question.correctOptionId === optionId;
+  const timeRemainingRatio = Math.max((room.timerEndsAt - now) / (question.timeLimitSeconds * 1000), 0);
+  const speedBonus = Math.round(question.points * 0.5 * timeRemainingRatio);
+  const scoreAwarded = isCorrect ? question.points + speedBonus : 0;
+
+  if (isCorrect) {
+    player.score += scoreAwarded;
+    player.correctAnswers += 1;
+  }
+
+  player.lastAnswerAt = now;
+  questionAnswers.set(playerId, {
+    playerId,
+    optionId,
+    isCorrect,
+    scoreAwarded,
+    answeredAt: now,
+  });
+  room.answersByQuestion.set(questionId, questionAnswers);
+
+  return {
+    answerCount: questionAnswers.size,
+    playerCount: room.players.size,
+    distribution: question.options.map((option) => ({
+      optionId: option.id,
+      text: option.text,
+      count: [...questionAnswers.values()].filter((entry) => entry.optionId === option.id).length,
+      isCorrect: option.id === question.correctOptionId,
+    })),
+  };
+}
+
+export async function advanceAfterQuestion(roomPin: string) {
+  const room = getRoomOrThrow(roomPin);
+  const quiz = await QuizModel.findById(room.quizId).lean();
+  if (!quiz) {
+    throw new HttpError(404, "Quiz not found.");
+  }
+
+  const question = quiz.questions[room.currentQuestionIndex];
+  if (!question) {
+    throw new HttpError(400, "No active question.");
+  }
+
+  const questionAnswers = room.answersByQuestion.get(question.id) ?? new Map<string, AnswerRecord>();
+  const leaderboard = getSortedPlayers(room.players).map((player, index) => ({
+    rank: index + 1,
+    playerId: player.id,
+    displayName: player.displayName,
+    score: player.score,
+    correctAnswers: player.correctAnswers,
+    connected: player.connected,
+  }));
+  const distribution = question.options.map((option) => ({
+    optionId: option.id,
+    text: option.text,
+    count: [...questionAnswers.values()].filter((entry) => entry.optionId === option.id).length,
+    isCorrect: option.id === question.correctOptionId,
+  }));
+
+  if (room.currentQuestionIndex >= quiz.questions.length - 1) {
+    room.status = "finished";
+    await GameSessionModel.updateOne(
+      { roomPin },
+      {
+        status: "finished",
+        endedAt: new Date(),
+        finalLeaderboard: leaderboard.map((entry) => ({
+          playerId: entry.playerId,
+          displayName: entry.displayName,
+          score: entry.score,
+          correctAnswers: entry.correctAnswers,
+        })),
+      },
+    );
+
+    return {
+      type: "game:end" as const,
+      payload: {
+        roomPin,
+        question: {
+          id: question.id,
+          prompt: question.prompt,
+          correctOptionId: question.correctOptionId,
+        },
+        distribution,
+        leaderboard,
+        podium: leaderboard.slice(0, 3),
+      },
+    };
+  }
+
+  room.status = "leaderboard";
+  return {
+    type: "question:end" as const,
+    payload: {
+      question: {
+        id: question.id,
+        prompt: question.prompt,
+        correctOptionId: question.correctOptionId,
+      },
+      distribution,
+      leaderboard,
+      nextQuestionIndex: room.currentQuestionIndex + 1,
+    },
+  };
+}
+
 export function markParticipantDisconnected(socketId: string) {
   for (const room of liveRooms.values()) {
     if (room.hostSocketId === socketId) {
@@ -161,6 +364,24 @@ export async function buildRoomState(roomPin: string) {
       title: room.quizTitle,
       questionCount: quiz.questions.length,
     },
+    currentQuestion:
+      room.currentQuestionIndex >= 0
+        ? {
+            id: quiz.questions[room.currentQuestionIndex]?.id,
+            prompt: quiz.questions[room.currentQuestionIndex]?.prompt,
+            options:
+              quiz.questions[room.currentQuestionIndex]?.options.map((option) => ({
+                id: option.id,
+                text: option.text,
+              })) ?? [],
+            timeLimitSeconds: quiz.questions[room.currentQuestionIndex]?.timeLimitSeconds,
+            points: quiz.questions[room.currentQuestionIndex]?.points,
+            correctOptionId:
+              room.status === "leaderboard" || room.status === "finished"
+                ? quiz.questions[room.currentQuestionIndex]?.correctOptionId
+                : undefined,
+          }
+        : null,
     players: getSortedPlayers(room.players).map((player) => ({
       id: player.id,
       displayName: player.displayName,
@@ -168,5 +389,37 @@ export async function buildRoomState(roomPin: string) {
       correctAnswers: player.correctAnswers,
       connected: player.connected,
     })),
+  };
+}
+
+export async function buildQuestionState(roomPin: string) {
+  const room = getRoomOrThrow(roomPin);
+  const quiz = await QuizModel.findById(room.quizId).lean();
+  if (!quiz) {
+    throw new HttpError(404, "Quiz not found.");
+  }
+
+  const question = quiz.questions[room.currentQuestionIndex];
+  if (!question) {
+    throw new HttpError(400, "No question available.");
+  }
+
+  room.timerEndsAt = Date.now() + question.timeLimitSeconds * 1000;
+
+  return {
+    roomPin,
+    questionIndex: room.currentQuestionIndex,
+    totalQuestions: quiz.questions.length,
+    timerEndsAt: room.timerEndsAt,
+    question: {
+      id: question.id,
+      prompt: question.prompt,
+      options: question.options.map((option) => ({
+        id: option.id,
+        text: option.text,
+      })),
+      timeLimitSeconds: question.timeLimitSeconds,
+      points: question.points,
+    },
   };
 }
