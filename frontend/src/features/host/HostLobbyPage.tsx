@@ -47,9 +47,9 @@ export function HostLobbyPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell themeId={room?.quiz.themeId}>
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <SectionHeading
             eyebrow="Lobby"
             title={room ? `Room ${room.roomPin}` : "Connecting to room..."}
@@ -79,7 +79,7 @@ export function HostLobbyPage() {
           </button>
         </GlassPanel>
 
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <h2 className="font-display text-2xl font-bold">Players in the Lobby</h2>
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (

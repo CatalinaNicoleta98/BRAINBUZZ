@@ -47,16 +47,16 @@ export function PlayerLobbyPage() {
   }, [navigate, roomPin]);
 
   return (
-    <AppShell>
+    <AppShell themeId={room?.quiz.themeId}>
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <SectionHeading
             eyebrow="Waiting Room"
             title={room ? `You joined room ${room.roomPin}` : "Connecting..."}
             description="Stay ready. The host can launch the game at any moment, and the next screen will sync automatically."
           />
         </GlassPanel>
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <h2 className="font-display text-2xl font-bold">Players in the Room</h2>
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (

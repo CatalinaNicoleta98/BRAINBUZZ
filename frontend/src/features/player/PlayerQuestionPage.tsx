@@ -3,7 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
+import { SoundToggle } from "../../shared/components/SoundToggle";
 import { TimerRing } from "../../shared/components/TimerRing";
+import { useGameSounds } from "../../shared/hooks/useGameSounds";
+import { useSoundPreference } from "../../shared/hooks/useSoundPreference";
 import { socket } from "../../shared/socket/socketClient";
 import type { GameEndPayload, QuestionShowPayload, RoomState, RoundEndPayload } from "../../shared/types/game";
 import { getPlayerSession } from "../../shared/utils/storage";
@@ -17,7 +20,16 @@ export function PlayerQuestionPage() {
   const [roundEnd, setRoundEnd] = useState<RoundEndPayload | null>(null);
   const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [themeId, setThemeId] = useState<string | undefined>();
   const session = getPlayerSession();
+  const { enabled: soundEnabled, toggle: toggleSound } = useSoundPreference();
+
+  useGameSounds({
+    questionId: question?.question.id,
+    lockedIn,
+    roundEnded: Boolean(roundEnd),
+    enabled: soundEnabled,
+  });
 
   useEffect(() => {
     if (!session || session.roomPin !== roomPin) {
@@ -26,6 +38,7 @@ export function PlayerQuestionPage() {
     }
 
     socket.emit("state:sync", { roomPin, role: "player", participantId: session.playerId }, (state: RoomState) => {
+      setThemeId(state.quiz.themeId);
       if (state.status === "finished") {
         navigate(`/results/${roomPin}`);
         return;
@@ -112,9 +125,9 @@ export function PlayerQuestionPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell themeId={themeId}>
       <div className="mx-auto grid w-full max-w-4xl gap-6">
-        <GlassPanel>
+        <GlassPanel themeId={themeId}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.35em] text-berry">Question Live</p>
@@ -127,7 +140,10 @@ export function PlayerQuestionPage() {
                     : "Choose quickly. Faster correct answers score higher."}
               </p>
             </div>
-            <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
+            <div className="flex flex-col items-end gap-3">
+              <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
+              <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
+            </div>
           </div>
 
           {session ? (

@@ -38,9 +38,9 @@ export function ResultsPage() {
   const podium = useMemo(() => room?.players.slice(0, 3) ?? [], [room]);
 
   return (
-    <AppShell>
+    <AppShell themeId={room?.quiz.themeId}>
       <div className="grid gap-6">
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <SectionHeading
             eyebrow="Final Results"
             title={room ? `${room.quiz.title} is complete.` : "Loading results..."}
@@ -49,7 +49,7 @@ export function ResultsPage() {
         </GlassPanel>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <GlassPanel>
+          <GlassPanel themeId={room?.quiz.themeId}>
             <h2 className="font-display text-3xl font-bold">Podium</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               {podium.map((player, index) => (
@@ -75,7 +75,7 @@ export function ResultsPage() {
             </div>
           </GlassPanel>
 
-          <GlassPanel>
+          <GlassPanel themeId={room?.quiz.themeId}>
             <h2 className="font-display text-3xl font-bold">Leaderboard</h2>
             <div className="mt-5 space-y-3">
               {room?.players.map((player, index) => (

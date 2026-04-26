@@ -3,7 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
+import { SoundToggle } from "../../shared/components/SoundToggle";
 import { TimerRing } from "../../shared/components/TimerRing";
+import { useGameSounds } from "../../shared/hooks/useGameSounds";
+import { useSoundPreference } from "../../shared/hooks/useSoundPreference";
 import { socket } from "../../shared/socket/socketClient";
 import type { AnswerDistribution, GameEndPayload, QuestionShowPayload, RoomState, RoundEndPayload } from "../../shared/types/game";
 
@@ -16,6 +19,13 @@ export function HostGamePage() {
   const [leaderboard, setLeaderboard] = useState<RoundEndPayload["leaderboard"]>([]);
   const [roundEnded, setRoundEnded] = useState(false);
   const [lastResult, setLastResult] = useState<GameEndPayload | null>(null);
+  const { enabled: soundEnabled, toggle: toggleSound } = useSoundPreference();
+
+  useGameSounds({
+    questionId: question?.question.id,
+    roundEnded,
+    enabled: soundEnabled,
+  });
 
   useEffect(() => {
     socket.emit("state:sync", { roomPin, role: "host" }, (state: RoomState) => {
@@ -125,9 +135,9 @@ export function HostGamePage() {
   }
 
   return (
-    <AppShell>
+    <AppShell themeId={room?.quiz.themeId}>
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
               <p className="text-sm font-semibold uppercase tracking-[0.35em] text-skyglow">Host Control</p>
@@ -136,7 +146,10 @@ export function HostGamePage() {
                 Question {(question?.questionIndex ?? 0) + 1} of {question?.totalQuestions ?? room?.quiz.questionCount ?? 0}
               </p>
             </div>
-            <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
+            <div className="flex flex-col items-end gap-3">
+              <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
+              <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
+            </div>
           </div>
 
           <div className="mt-8 grid gap-4">
@@ -173,7 +186,7 @@ export function HostGamePage() {
           ) : null}
         </GlassPanel>
 
-        <GlassPanel>
+        <GlassPanel themeId={room?.quiz.themeId}>
           <h2 className="font-display text-2xl font-bold">Live Leaderboard</h2>
           <div className="mt-5 space-y-3">
             {(leaderboard.length ? leaderboard : room?.players ?? []).map((entry, index) => (
