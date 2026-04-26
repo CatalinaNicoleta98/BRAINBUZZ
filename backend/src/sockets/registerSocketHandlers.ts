@@ -51,7 +51,7 @@ export function registerSocketHandlers(io: Server) {
   io.on("connection", (socket) => {
     socket.on("room:create", (payload: CreateRoomPayload, callback?: (response: unknown) => void) => {
       void handleAsync(socket, async () => {
-        const result = await createRoom(payload.quizId, payload.hostName, socket.id);
+        const result = await createRoom(payload.quizId, payload.hostName, socket.id, payload.themeId);
         socket.data.role = "host";
         socket.data.roomPin = result.roomPin;
         await socket.join(result.roomPin);

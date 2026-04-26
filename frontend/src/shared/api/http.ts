@@ -16,3 +16,5 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 
   return response.json() as Promise<T>;
 }
+
+export { API_BASE_URL };

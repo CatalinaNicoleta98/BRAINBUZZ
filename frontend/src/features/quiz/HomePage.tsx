@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "../../app/AuthProvider";
 import { AppShell } from "../../shared/components/AppShell";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { SectionHeading } from "../../shared/components/SectionHeading";
 
 export function HomePage() {
+  const { user } = useAuth();
+
   return (
     <AppShell>
       <div className="grid flex-1 items-center gap-8 lg:grid-cols-[1.2fr_0.8fr]">
@@ -39,6 +42,12 @@ export function HomePage() {
               className="rounded-2xl border border-white/15 bg-white/5 px-6 py-4 text-center font-bold transition hover:border-electric/60"
             >
               Join a Room
+            </Link>
+            <Link
+              to={user ? "/creator/studio" : "/creator/auth"}
+              className="rounded-2xl border border-white/15 bg-white/5 px-6 py-4 text-center font-bold transition hover:border-skyglow/60"
+            >
+              {user ? "Open Creator Studio" : "Creator Account"}
             </Link>
           </div>
         </div>

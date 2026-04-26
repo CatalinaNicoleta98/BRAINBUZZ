@@ -8,6 +8,7 @@ export interface JoinRoomPayload {
 export interface CreateRoomPayload {
   quizId: string;
   hostName: string;
+  themeId?: string;
 }
 
 export interface SubmitAnswerPayload {

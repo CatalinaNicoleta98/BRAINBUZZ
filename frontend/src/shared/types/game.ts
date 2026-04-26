@@ -3,6 +3,9 @@ export interface QuizSummary {
   title: string;
   description: string;
   createdBy: string;
+  themeId: string;
+  coverEmoji: string;
+  visibility: "private" | "public";
   questions: Array<{
     id: string;
     prompt: string;
@@ -23,6 +26,9 @@ export interface RoomState {
     id: string;
     title: string;
     questionCount: number;
+    themeId: string;
+    coverEmoji: string;
+    visibility: "private" | "public";
   };
   currentQuestion: {
     id?: string;

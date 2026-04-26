@@ -17,6 +17,7 @@ const sessionSchema = new Schema(
     quizId: { type: Schema.Types.ObjectId, ref: "Quiz", required: true },
     quizTitle: { type: String, required: true },
     hostName: { type: String, required: true },
+    themeId: { type: String, required: true, default: "midnight" },
     status: { type: String, required: true },
     startedAt: { type: Date },
     endedAt: { type: Date },

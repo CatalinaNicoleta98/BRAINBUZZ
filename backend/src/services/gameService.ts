@@ -24,6 +24,7 @@ interface LiveRoom {
   hostName: string;
   quizId: string;
   quizTitle: string;
+  themeId: string;
   status: RoomStatus;
   currentQuestionIndex: number;
   players: Map<string, LivePlayer>;
@@ -66,7 +67,7 @@ export function getRoom(roomPin: string) {
   return liveRooms.get(roomPin);
 }
 
-export async function createRoom(quizId: string, hostName: string, hostSocketId: string) {
+export async function createRoom(quizId: string, hostName: string, hostSocketId: string, themeId?: string) {
   const quiz = await QuizModel.findById(quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
@@ -83,6 +84,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     hostName,
     quizId: quiz._id.toString(),
     quizTitle: quiz.title,
+    themeId: themeId ?? quiz.themeId ?? "midnight",
     status: "lobby",
     currentQuestionIndex: -1,
     players: new Map(),
@@ -95,6 +97,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     quizId: quiz._id,
     quizTitle: quiz.title,
     hostName,
+    themeId: themeId ?? quiz.themeId ?? "midnight",
     status: "lobby",
   });
 
@@ -382,6 +385,9 @@ export async function buildRoomState(roomPin: string) {
       id: room.quizId,
       title: room.quizTitle,
       questionCount: quiz.questions.length,
+      themeId: room.themeId,
+      coverEmoji: quiz.coverEmoji,
+      visibility: quiz.visibility,
     },
     currentQuestion:
       room.currentQuestionIndex >= 0

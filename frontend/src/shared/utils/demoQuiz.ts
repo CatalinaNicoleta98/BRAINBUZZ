@@ -1,6 +1,9 @@
 export const demoQuiz = {
   title: "BrainBuzz Launch Night",
   description: "A punchy mixed-knowledge quiz for showing off live multiplayer game flow.",
+  themeId: "midnight",
+  coverEmoji: "🧠",
+  visibility: "public" as const,
   questions: [
     {
       prompt: "Which web API keeps a client-server connection open for two-way real-time communication?",
