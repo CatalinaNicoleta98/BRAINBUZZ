@@ -1,10 +1,17 @@
 import { Router } from "express";
-import { createQuizController, getQuizController, listQuizzesController } from "../controllers/quizController.js";
+import {
+  createQuizController,
+  getQuizController,
+  listCreatorLibraryController,
+  listQuizzesController,
+} from "../controllers/quizController.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const quizRouter = Router();
 
 quizRouter.get("/", listQuizzesController);
+quizRouter.get("/mine", requireAuth, listCreatorLibraryController);
 quizRouter.get("/:quizId", getQuizController);
-quizRouter.post("/", createQuizController);
+quizRouter.post("/", requireAuth, createQuizController);
 
 export { quizRouter };

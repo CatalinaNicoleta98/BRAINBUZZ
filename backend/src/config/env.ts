@@ -36,10 +36,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   DBHOST: z.string().optional(),
   CORS_ORIGINS: corsOriginsSchema,
+  JWT_SECRET: z.string().min(12).default("brainbuzz-local-secret"),
 });
 
 export const env = envSchema.parse({
   PORT: process.env.PORT,
   DBHOST: process.env.DBHOST,
   CORS_ORIGINS: process.env.CORS_ORIGINS,
+  JWT_SECRET: process.env.JWT_SECRET,
 });

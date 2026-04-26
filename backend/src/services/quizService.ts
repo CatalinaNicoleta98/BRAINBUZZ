@@ -7,6 +7,9 @@ const quizPayloadSchema = z.object({
   title: z.string().min(3).max(80),
   description: z.string().min(10).max(240),
   createdBy: z.string().min(2).max(40),
+  themeId: z.string().min(3).max(40).default("midnight"),
+  coverEmoji: z.string().min(1).max(4).default("🧠"),
+  visibility: z.enum(["private", "public"]).default("private"),
   questions: z
     .array(
       z.object({
@@ -23,7 +26,7 @@ const quizPayloadSchema = z.object({
 
 export type CreateQuizInput = z.infer<typeof quizPayloadSchema>;
 
-export async function createQuiz(input: CreateQuizInput) {
+export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
   const parsed = quizPayloadSchema.parse(input);
 
   const questions = parsed.questions.map((question) => {
@@ -49,14 +52,26 @@ export async function createQuiz(input: CreateQuizInput) {
     title: parsed.title,
     description: parsed.description,
     createdBy: parsed.createdBy,
+    ownerId,
+    themeId: parsed.themeId,
+    coverEmoji: parsed.coverEmoji,
+    visibility: ownerId ? parsed.visibility : "public",
     questions,
   });
 }
 
-export async function listQuizzes() {
-  return QuizModel.find().sort({ createdAt: -1 }).lean();
+export async function listQuizzes(userId?: string) {
+  const query = userId
+    ? { $or: [{ visibility: "public" }, { ownerId: userId }] }
+    : { visibility: "public" };
+
+  return QuizModel.find(query).sort({ createdAt: -1 }).lean();
 }
 
 export async function getQuizById(quizId: string) {
   return QuizModel.findById(quizId).lean();
+}
+
+export async function listMyQuizzes(userId: string) {
+  return QuizModel.find({ ownerId: userId }).sort({ updatedAt: -1 }).lean();
 }
