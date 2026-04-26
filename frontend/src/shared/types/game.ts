@@ -70,3 +70,19 @@ export interface LeaderboardEntry {
   correctAnswers: number;
   connected: boolean;
 }
+
+export interface RoundEndPayload {
+  question: {
+    id: string;
+    prompt: string;
+    correctOptionId: string;
+  };
+  distribution: AnswerDistribution[];
+  leaderboard: LeaderboardEntry[];
+  nextQuestionIndex?: number;
+}
+
+export interface GameEndPayload extends RoundEndPayload {
+  roomPin: string;
+  podium: LeaderboardEntry[];
+}
