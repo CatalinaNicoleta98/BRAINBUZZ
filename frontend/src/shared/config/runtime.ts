@@ -1,4 +1,4 @@
-const fallbackApiBaseUrl =
-  typeof window !== "undefined" ? window.location.origin : "http://localhost:4000";
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || fallbackApiBaseUrl;
+export const apiBaseUrl =
+  configuredApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
