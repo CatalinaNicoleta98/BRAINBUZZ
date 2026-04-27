@@ -53,14 +53,14 @@ export function PlayerJoinPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex min-h-[72vh] max-w-3xl items-center justify-center">
+      <div className="ui-page flex min-h-[72vh] items-center justify-center">
         <GlassPanel>
           <div className="mx-auto max-w-2xl text-center">
-            <div className="inline-flex rounded-full bg-cyan-300 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-950">
+            <div className="ui-chip bg-cyan-300 text-slate-950">
               Join Game
             </div>
-            <h1 className="mt-5 font-display text-4xl font-bold text-white sm:text-5xl">Enter PIN. Pick a name. Play live.</h1>
-            <p className="mt-3 text-slate-200">Fast join on mobile or desktop, with just enough setup to get you in the room.</p>
+            <h1 className="mt-5 font-display text-3xl font-bold text-white sm:text-5xl">Enter PIN. Pick a name. Play live.</h1>
+            <p className="mt-3 text-sm text-slate-200 sm:text-base">Fast join on mobile or desktop, with just enough setup to get you in the room.</p>
           </div>
 
           <form className="mx-auto mt-8 max-w-2xl space-y-5" onSubmit={handleSubmit}>
@@ -71,7 +71,7 @@ export function PlayerJoinPage() {
                   value={roomPin}
                   onChange={(event) => setRoomPin(event.target.value)}
                   inputMode="numeric"
-                  className="min-h-16 w-full rounded-[1.75rem] border-2 border-white/15 bg-slate-950/80 px-4 text-center font-display text-3xl tracking-[0.35em] text-white outline-none transition focus:border-yellow-300"
+                  className="ui-input min-h-16 px-4 text-center font-display text-2xl tracking-[0.3em] sm:text-3xl sm:tracking-[0.35em]"
                   placeholder="123456"
                   required
                 />
@@ -81,14 +81,14 @@ export function PlayerJoinPage() {
                 <input
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
-                  className="min-h-16 w-full rounded-[1.75rem] border-2 border-white/15 bg-slate-950/80 px-5 text-lg font-semibold text-white outline-none transition focus:border-cyan-300"
+                  className="ui-input min-h-16 text-lg font-semibold focus:border-cyan-300"
                   placeholder="Catalina"
                   required
                 />
               </div>
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+            <div className="ui-stat-card">
               <label className="mb-3 block text-sm font-bold uppercase tracking-[0.26em] text-yellow-200">Choose avatar</label>
               <AvatarPicker selectedAvatarId={avatarId} onSelect={setAvatarId} />
             </div>
@@ -98,7 +98,7 @@ export function PlayerJoinPage() {
             <button
               type="submit"
               disabled={loading}
-              className="min-h-16 w-full rounded-[1.75rem] bg-fuchsia-500 px-5 text-lg font-bold text-white transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ui-button-accent min-h-16 w-full rounded-[1.75rem] px-5 text-lg"
             >
               {loading ? "Joining..." : "Join Game"}
             </button>
@@ -106,13 +106,13 @@ export function PlayerJoinPage() {
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
               <Link
                 to="/"
-                className="rounded-2xl border border-white/10 px-4 py-3 font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+                className="ui-button-secondary"
               >
                 Back to Home
               </Link>
               <Link
                 to="/host/library"
-                className="rounded-2xl border border-white/10 px-4 py-3 font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+                className="ui-button-secondary"
               >
                 Host Instead
               </Link>

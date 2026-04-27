@@ -22,15 +22,15 @@ export function HomePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex min-h-[70vh] max-w-5xl flex-col items-center justify-center gap-8">
+      <div className="ui-page flex min-h-[70vh] flex-col items-center justify-center gap-6 sm:gap-8">
         <div className="w-full max-w-3xl text-center">
-          <div className="inline-flex rounded-full bg-yellow-300 px-4 py-2 text-xs font-bold uppercase tracking-[0.32em] text-slate-950">
+          <div className="ui-chip bg-yellow-300 text-slate-950">
             Join fast. Host faster.
           </div>
-          <h1 className="mt-5 font-display text-5xl font-bold tracking-tight text-white sm:text-6xl">
+          <h1 className="mt-5 font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
             Live quiz play starts with a PIN.
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-200">
+          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-200 sm:text-lg">
             Enter the game in seconds, or open a room and start hosting right away.
           </p>
         </div>
@@ -44,12 +44,12 @@ export function HomePage() {
                   value={roomPin}
                   onChange={(event) => setRoomPin(event.target.value)}
                   inputMode="numeric"
-                  className="min-h-16 flex-1 rounded-[1.75rem] border-2 border-white/15 bg-slate-950/80 px-6 text-center font-display text-3xl tracking-[0.35em] text-white outline-none transition focus:border-yellow-300"
+                  className="ui-input min-h-16 flex-1 px-4 text-center font-display text-2xl tracking-[0.3em] sm:px-6 sm:text-3xl sm:tracking-[0.35em]"
                   placeholder="123456"
                 />
                 <button
                   type="submit"
-                  className="min-h-16 rounded-[1.75rem] bg-fuchsia-500 px-8 text-lg font-bold text-white transition hover:bg-fuchsia-400"
+                  className="ui-button-accent min-h-16 px-8 text-lg"
                 >
                   Join Game
                 </button>
@@ -59,13 +59,13 @@ export function HomePage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <Link
                 to="/host/library"
-                className="rounded-[1.75rem] bg-yellow-300 px-6 py-5 text-center text-lg font-bold text-slate-950 transition hover:bg-yellow-200"
+                className="ui-button-primary min-h-16 rounded-[1.75rem] px-6 py-5 text-lg"
               >
                 Host Game
               </Link>
               <Link
                 to="/player/join"
-                className="rounded-[1.75rem] border-2 border-white/15 bg-white/5 px-6 py-5 text-center text-lg font-bold text-white transition hover:border-cyan-300/70 hover:bg-white/10"
+                className="ui-button-secondary min-h-16 rounded-[1.75rem] border-2 px-6 py-5 text-lg"
               >
                 Full Join Setup
               </Link>
@@ -74,15 +74,15 @@ export function HomePage() {
         </GlassPanel>
 
         <div className="grid w-full max-w-4xl gap-3 sm:grid-cols-3">
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-4 text-center">
+          <div className="ui-stat-card p-4 text-center">
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">1</div>
             <div className="mt-2 font-semibold text-white">Enter PIN</div>
           </div>
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-4 text-center">
+          <div className="ui-stat-card p-4 text-center">
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">2</div>
             <div className="mt-2 font-semibold text-white">Pick a name</div>
           </div>
-          <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-4 text-center">
+          <div className="ui-stat-card p-4 text-center">
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">3</div>
             <div className="mt-2 font-semibold text-white">Answer live</div>
           </div>
@@ -92,14 +92,14 @@ export function HomePage() {
           {user ? (
             <Link
               to="/creator/studio"
-              className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-center font-semibold text-white transition hover:border-white/25 hover:bg-white/10"
+              className="ui-button-secondary"
             >
               Open Creator Studio
             </Link>
           ) : (
             <Link
               to="/creator/auth"
-              className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-center font-semibold text-white transition hover:border-white/25 hover:bg-white/10"
+              className="ui-button-secondary"
             >
               Creator Login
             </Link>
