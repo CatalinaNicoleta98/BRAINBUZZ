@@ -9,6 +9,10 @@ export function getHostRoom() {
   return localStorage.getItem(HOST_ROOM_KEY);
 }
 
+export function clearHostRoom() {
+  localStorage.removeItem(HOST_ROOM_KEY);
+}
+
 export function savePlayerSession(session: { roomPin: string; playerId: string; displayName: string; avatarId: string }) {
   localStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(session));
 }
@@ -16,4 +20,8 @@ export function savePlayerSession(session: { roomPin: string; playerId: string; 
 export function getPlayerSession() {
   const raw = localStorage.getItem(PLAYER_SESSION_KEY);
   return raw ? (JSON.parse(raw) as { roomPin: string; playerId: string; displayName: string; avatarId: string }) : null;
+}
+
+export function clearPlayerSession() {
+  localStorage.removeItem(PLAYER_SESSION_KEY);
 }

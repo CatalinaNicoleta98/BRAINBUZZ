@@ -11,6 +11,15 @@ import { socket } from "../../shared/socket/socketClient";
 import type { GameEndPayload, QuestionShowPayload, RoomState, RoundEndPayload } from "../../shared/types/game";
 import { getPlayerSession } from "../../shared/utils/storage";
 
+const waitingQuotes = [
+  "Final answer energy activated.",
+  "Bold choice. Future you is judging quietly.",
+  "Confidence level: suspiciously high.",
+  "The quiz gods are reviewing your bravery.",
+  "That answer is marinating nicely.",
+  "Tiny drumroll. Massive consequences.",
+];
+
 export function PlayerQuestionPage() {
   const navigate = useNavigate();
   const { roomPin = "" } = useParams();
@@ -19,6 +28,7 @@ export function PlayerQuestionPage() {
   const [lockedIn, setLockedIn] = useState(false);
   const [roundEnd, setRoundEnd] = useState<RoundEndPayload | null>(null);
   const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
+  const [waitingQuote, setWaitingQuote] = useState(waitingQuotes[0]);
   const [error, setError] = useState("");
   const [themeId, setThemeId] = useState<string | undefined>();
   const session = getPlayerSession();
@@ -41,6 +51,42 @@ export function PlayerQuestionPage() {
       setThemeId(state.quiz.themeId);
       if (state.status === "finished") {
         navigate(`/results/${roomPin}`);
+        return;
+      }
+
+      if (state.status === "leaderboard" && state.currentQuestion?.id) {
+        setQuestion({
+          roomPin,
+          questionIndex: state.currentQuestionIndex,
+          totalQuestions: state.quiz.questionCount,
+          timerEndsAt: state.timerEndsAt ?? Date.now(),
+          question: {
+            id: state.currentQuestion.id,
+            prompt: state.currentQuestion.prompt ?? "",
+            options: state.currentQuestion.options,
+            timeLimitSeconds: state.currentQuestion.timeLimitSeconds ?? 0,
+            points: state.currentQuestion.points ?? 0,
+          },
+        });
+        setRoundEnd({
+          question: {
+            id: state.currentQuestion.id,
+            prompt: state.currentQuestion.prompt ?? "",
+            correctOptionId: state.currentQuestion.correctOptionId ?? "",
+          },
+          distribution: [],
+          leaderboard: state.players.map((player, index) => ({
+            rank: index + 1,
+            playerId: player.id,
+            displayName: player.displayName,
+            avatarId: player.avatarId,
+            score: player.score,
+            correctAnswers: player.correctAnswers,
+            connected: player.connected,
+          })),
+        });
+        setLockedIn(true);
+        setPendingOptionId(null);
         return;
       }
 
@@ -73,12 +119,14 @@ export function PlayerQuestionPage() {
       setRoundEnd(null);
       setPendingOptionId(null);
       setError("");
+      setWaitingQuote(waitingQuotes[Math.floor(Math.random() * waitingQuotes.length)] ?? waitingQuotes[0]);
     };
 
     const handleAnswerReceived = (payload: { optionId: string }) => {
       setSelectedOptionId(payload.optionId);
       setLockedIn(true);
       setPendingOptionId(null);
+      setWaitingQuote(waitingQuotes[Math.floor(Math.random() * waitingQuotes.length)] ?? waitingQuotes[0]);
     };
 
     const handleQuestionEnd = (payload: RoundEndPayload) => {
@@ -142,7 +190,10 @@ export function PlayerQuestionPage() {
             </div>
             <div className="flex flex-col items-end gap-3">
               <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
-              <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
+              <TimerRing
+                endsAt={lockedIn || roundEnd ? null : (question?.timerEndsAt ?? null)}
+                totalSeconds={question?.question.timeLimitSeconds ?? 15}
+              />
             </div>
           </div>
 
@@ -158,31 +209,72 @@ export function PlayerQuestionPage() {
 
           {error ? <div className="mt-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {question?.question.options.map((option, index) => {
-              const isSelected = selectedOptionId === option.id || pendingOptionId === option.id;
-              const isCorrectReveal = roundEnd?.question.correctOptionId === option.id;
+          {!lockedIn && !roundEnd ? (
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              {question?.question.options.map((option, index) => {
+                const isSelected = pendingOptionId === option.id;
 
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => submitAnswer(option.id)}
-                  disabled={lockedIn || !!roundEnd || !!pendingOptionId}
-                  className={`rounded-3xl border px-5 py-6 text-left transition ${
-                    isCorrectReveal
-                      ? "border-electric bg-electric/20"
-                      : isSelected
-                        ? "border-berry bg-berry/20"
-                        : "border-white/10 bg-slate-950/60 hover:border-skyglow/60"
-                  }`}
-                >
-                  <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Option {index + 1}</div>
-                  <div className="mt-3 text-lg font-semibold">{option.text}</div>
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => submitAnswer(option.id)}
+                    disabled={!!pendingOptionId}
+                    className={`rounded-3xl border px-5 py-6 text-left transition ${
+                      isSelected ? "border-berry bg-berry/20" : "border-white/10 bg-slate-950/60 hover:border-skyglow/60"
+                    }`}
+                  >
+                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Option {index + 1}</div>
+                    <div className="mt-3 text-lg font-semibold">{option.text}</div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {lockedIn && !roundEnd ? (
+            <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
+              <div className="text-sm uppercase tracking-[0.3em] text-electric">Answer Locked</div>
+              <h2 className="mt-3 font-display text-3xl font-bold">Waiting for the rest of the room...</h2>
+              <p className="mt-3 text-slate-300">{waitingQuote}</p>
+              <div className="mt-6 rounded-2xl border border-berry/30 bg-berry/10 p-4">
+                <div className="text-sm text-slate-300">Your timer is stopped. We’ll reveal the standings when the question closes.</div>
+              </div>
+            </div>
+          ) : null}
+
+          {roundEnd ? (
+            <div className="mt-8 space-y-6">
+              <div className="rounded-[2rem] border border-electric/25 bg-electric/10 p-6">
+                <div className="text-sm uppercase tracking-[0.3em] text-electric">Round Complete</div>
+                <h2 className="mt-3 font-display text-3xl font-bold">Leaderboard update</h2>
+                <p className="mt-3 text-slate-300">
+                  Correct answer:{" "}
+                  <span className="font-semibold text-white">
+                    {question?.question.options.find((option) => option.id === roundEnd.question.correctOptionId)?.text ?? "Revealed on host screen"}
+                  </span>
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                {roundEnd.leaderboard.map((entry) => (
+                  <div key={entry.playerId} className="flex items-center justify-between rounded-2xl bg-slate-950/60 px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <AvatarBadge avatarId={entry.avatarId ?? "spark"} size="sm" />
+                      <div>
+                        <div className="text-sm uppercase tracking-[0.25em] text-slate-400">#{entry.rank}</div>
+                        <div className="font-semibold">{entry.displayName}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-display text-2xl">{entry.score}</div>
+                      <div className="text-sm text-slate-400">{entry.correctAnswers} correct</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </GlassPanel>
       </div>
     </AppShell>

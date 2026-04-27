@@ -1,5 +1,5 @@
-import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { FormEvent, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarPicker } from "../../shared/components/AvatarPicker";
 import { GlassPanel } from "../../shared/components/GlassPanel";
@@ -10,11 +10,19 @@ import { avatarOptions } from "../../shared/utils/avatars";
 
 export function PlayerJoinPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [roomPin, setRoomPin] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [avatarId, setAvatarId] = useState(avatarOptions[0].id);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const pinFromQuery = searchParams.get("pin");
+    if (pinFromQuery) {
+      setRoomPin(pinFromQuery);
+    }
+  }, [searchParams]);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();

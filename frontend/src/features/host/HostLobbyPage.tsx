@@ -13,6 +13,10 @@ export function HostLobbyPage() {
   const { roomPin = "" } = useParams();
   const [room, setRoom] = useState<RoomState | null>(null);
   const [error, setError] = useState("");
+  const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/player/join?pin=${roomPin}` : "";
+  const qrCodeUrl = joinUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
+    : "";
 
   useEffect(() => {
     const localRoom = getHostRoom();
@@ -90,6 +94,29 @@ export function HostLobbyPage() {
         </GlassPanel>
 
         <GlassPanel themeId={room?.quiz.themeId}>
+          <div className="mb-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+            <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+              <div className="flex justify-center">
+                {qrCodeUrl ? <img src={qrCodeUrl} alt={`QR code to join room ${roomPin}`} className="h-44 w-44 rounded-2xl bg-white p-3" /> : null}
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Quick Join</div>
+                  <div className="mt-2 font-display text-3xl font-bold">{roomPin}</div>
+                </div>
+                <p className="text-sm text-slate-300">Players can scan this QR code on their phone or use the room PIN to land straight on the join page.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(joinUrl);
+                  }}
+                  className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-electric/60"
+                >
+                  Copy join link
+                </button>
+              </div>
+            </div>
+          </div>
           <h2 className="font-display text-2xl font-bold">Players in the Lobby</h2>
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (
