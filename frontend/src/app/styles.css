@@ -6,9 +6,10 @@
   color-scheme: dark;
   font-family: "Plus Jakarta Sans", sans-serif;
   background:
-    radial-gradient(circle at top, rgba(56, 189, 248, 0.2), transparent 30%),
-    radial-gradient(circle at right, rgba(244, 114, 182, 0.18), transparent 25%),
-    linear-gradient(180deg, #070b16 0%, #09090f 55%, #05070c 100%);
+    radial-gradient(circle at top, rgba(250, 204, 21, 0.18), transparent 22%),
+    radial-gradient(circle at left, rgba(34, 211, 238, 0.18), transparent 24%),
+    radial-gradient(circle at right, rgba(217, 70, 239, 0.2), transparent 28%),
+    linear-gradient(180deg, #12061f 0%, #090612 45%, #04050b 100%);
   color: #f8fafc;
 }
 
@@ -42,11 +43,11 @@ body::after {
   height: 40rem;
   width: 40rem;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 65%);
-  filter: blur(30px);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.14) 0%, transparent 65%);
+  filter: blur(36px);
   pointer-events: none;
 }
 
 ::selection {
-  background: rgba(94, 234, 212, 0.35);
+  background: rgba(250, 204, 21, 0.4);
 }

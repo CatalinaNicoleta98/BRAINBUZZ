@@ -14,10 +14,9 @@ export function AppShell({ children, themeId }: AppShellProps) {
   const { user, logout } = useAuth();
   const theme = getThemeById(themeId);
   const navItems = [
-    { to: "/", label: "Home" },
-    { to: "/host/library", label: "Host" },
-    { to: "/player/join", label: "Play" },
-    { to: user ? "/creator/studio" : "/creator/auth", label: user ? "Studio" : "Creator" },
+    { to: "/host/library", label: "Host Game", emphasis: true },
+    { to: "/player/join", label: "Join Game", emphasis: true },
+    { to: user ? "/creator/studio" : "/creator/auth", label: user ? "Studio" : "Creator", emphasis: false },
   ];
 
   function resetLiveState() {
@@ -26,69 +25,97 @@ export function AppShell({ children, themeId }: AppShellProps) {
   }
 
   return (
-    <div className={`min-h-screen overflow-hidden px-4 py-6 text-slate-100 sm:px-6 lg:px-8 ${theme.shellClassName}`}>
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl flex-col gap-6 lg:flex-row">
-        <aside className="w-full rounded-[2rem] border border-white/10 bg-slate-950/45 p-4 shadow-neon backdrop-blur-xl lg:sticky lg:top-6 lg:w-72 lg:self-start">
-          <div className="flex items-center justify-between gap-3 lg:block">
-            <div>
+    <div className={`min-h-screen overflow-hidden px-4 py-4 text-slate-100 sm:px-6 lg:px-8 ${theme.shellClassName}`}>
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col">
+        <header className="sticky top-4 z-20 mb-6 rounded-[1.75rem] border border-white/10 bg-slate-950/70 px-4 py-4 shadow-neon backdrop-blur-xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center justify-between gap-3">
               <Link to="/" className="font-display text-2xl font-bold tracking-tight text-white">
                 BrainBuzz
               </Link>
-              <p className="mt-1 text-sm text-slate-400">Live quiz hosting and play, without getting trapped on one page.</p>
+              <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-yellow-200">
+                Live Quiz
+              </div>
             </div>
-            {location.pathname !== "/" ? (
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-electric/60"
-              >
-                Back
-              </button>
-            ) : null}
-          </div>
 
-          <nav className="mt-5 grid gap-2 sm:grid-cols-4 lg:grid-cols-1">
-            {navItems.map((item) => {
-              const active = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    active ? "bg-electric text-slate-950" : "border border-white/10 bg-white/5 text-slate-200 hover:border-white/20"
-                  }`}
+            <div className="flex flex-wrap items-center gap-2">
+              {location.pathname !== "/" ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-yellow-300/70 hover:bg-white/10"
                 >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Session</div>
-            <div className="text-sm text-slate-200">{user ? `Signed in as ${user.displayName}` : "Guest mode active"}</div>
-            <button
-              type="button"
-              onClick={resetLiveState}
-              className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-skyglow/60"
-            >
-              Clear room memory
-            </button>
-            {user ? (
+                  Back
+                </button>
+              ) : null}
+              {navItems.map((item) => {
+                const active = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`rounded-2xl px-4 py-3 text-sm font-bold transition ${
+                      active
+                        ? "bg-yellow-300 text-slate-950"
+                        : item.emphasis
+                          ? "bg-fuchsia-500 text-white hover:bg-fuchsia-400"
+                          : "border border-white/10 bg-white/5 text-slate-100 hover:border-white/20 hover:bg-white/10"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
               <button
                 type="button"
-                onClick={() => {
-                  resetLiveState();
-                  logout();
-                  navigate("/");
-                }}
-                className="w-full rounded-2xl border border-rose-400/25 px-4 py-3 text-sm font-semibold text-rose-200 transition hover:border-rose-300"
+                onClick={resetLiveState}
+                className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-300/70 hover:bg-white/10"
               >
-                Log out
+                Reset Session
               </button>
-            ) : null}
+              {user ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+                  {user.displayName}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">Guest</div>
+              )}
+              {user ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/creator/studio")}
+                    className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+                  >
+                    My Studio
+                  </button>
+                </>
+              ) : null}
+              {user ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetLiveState();
+                      logout();
+                      navigate("/");
+                    }}
+                    className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm font-semibold text-rose-100 transition hover:border-rose-300"
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/creator/auth"
+                  className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+                >
+                  Creator Login
+                </Link>
+              )}
+            </div>
           </div>
-        </aside>
+        </header>
 
         <main className="min-w-0 flex-1">
           {children}
