@@ -22,7 +22,7 @@ export function PlayerLobbyPage() {
 
     socket.emit("state:sync", { roomPin, role: "player", participantId: session.playerId }, (state: RoomState) => {
       setRoom(state);
-      if (state.status === "question") {
+      if (state.status === "question_live") {
         navigate(`/player/question/${roomPin}`);
       }
     });

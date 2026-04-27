@@ -5,7 +5,7 @@ import { createPin } from "../utils/createPin.js";
 import { buildRankedLeaderboard, calculateScoreAward } from "../utils/gameMath.js";
 import { HttpError } from "../utils/httpError.js";
 
-type RoomStatus = "lobby" | "question" | "leaderboard" | "finished";
+type RoomStatus = "waiting" | "question_live" | "reveal" | "leaderboard" | "finished";
 
 export interface LivePlayer {
   id: string;
@@ -42,6 +42,26 @@ interface AnswerRecord {
   answeredAt: number;
 }
 
+interface DistributionRow {
+  optionId: string;
+  text: string;
+  count: number;
+  isCorrect: boolean;
+}
+
+interface PlayerRevealPayload {
+  roomPin: string;
+  questionId: string;
+  playerId: string;
+  selectedOptionId?: string;
+  selectedOptionText?: string;
+  correctOptionId: string;
+  correctOptionText: string;
+  isCorrect: boolean;
+  scoreAwarded: number;
+  totalScore: number;
+}
+
 const liveRooms = new Map<string, LiveRoom>();
 
 function getRoomOrThrow(roomPin: string) {
@@ -61,6 +81,48 @@ function getSortedPlayers(players: Map<string, LivePlayer>) {
 
     return a.displayName.localeCompare(b.displayName);
   });
+}
+
+function buildDistribution(
+  question: {
+    correctOptionId: string;
+    options: Array<{ id: string; text: string }>;
+  },
+  questionAnswers: Map<string, AnswerRecord>,
+): DistributionRow[] {
+  return question.options.map((option) => ({
+    optionId: option.id,
+    text: option.text,
+    count: [...questionAnswers.values()].filter((entry) => entry.optionId === option.id).length,
+    isCorrect: option.id === question.correctOptionId,
+  }));
+}
+
+function buildPlayerRevealPayload(
+  roomPin: string,
+  question: {
+    id: string;
+    correctOptionId: string;
+    options: Array<{ id: string; text: string }>;
+  },
+  player: LivePlayer,
+  answer?: AnswerRecord,
+): PlayerRevealPayload {
+  const correctOption = question.options.find((option) => option.id === question.correctOptionId);
+  const selectedOption = question.options.find((option) => option.id === answer?.optionId);
+
+  return {
+    roomPin,
+    questionId: question.id,
+    playerId: player.id,
+    selectedOptionId: answer?.optionId,
+    selectedOptionText: selectedOption?.text,
+    correctOptionId: question.correctOptionId,
+    correctOptionText: correctOption?.text ?? "",
+    isCorrect: answer?.isCorrect ?? false,
+    scoreAwarded: answer?.scoreAwarded ?? 0,
+    totalScore: player.score,
+  };
 }
 
 export function getRoom(roomPin: string) {
@@ -90,7 +152,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     quizId: quiz._id.toString(),
     quizTitle: quiz.title,
     themeId: themeId ?? quiz.themeId ?? "midnight",
-    status: "lobby",
+    status: "waiting",
     currentQuestionIndex: -1,
     players: new Map(),
     answersByQuestion: new Map(),
@@ -103,7 +165,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     quizTitle: quiz.title,
     hostName: normalizedHostName,
     themeId: themeId ?? quiz.themeId ?? "midnight",
-    status: "lobby",
+    status: "waiting",
   });
 
   return {
@@ -148,7 +210,7 @@ export async function joinRoom(roomPin: string, displayName: string, avatarId: s
 
   return {
     playerId: player.id,
-    room: await buildRoomState(normalizedRoomPin),
+    room: await buildRoomState(normalizedRoomPin, player.id),
   };
 }
 
@@ -158,13 +220,13 @@ export async function startGame(roomPin: string) {
     throw new HttpError(400, "At least one player must join before starting.");
   }
 
-  room.status = "question";
   room.currentQuestionIndex = 0;
+  room.status = "question_live";
 
   await GameSessionModel.updateOne(
     { roomPin },
     {
-      status: "question",
+      status: "question_live",
       startedAt: new Date(),
     },
   );
@@ -174,13 +236,77 @@ export async function startGame(roomPin: string) {
 
 export async function nextQuestion(roomPin: string) {
   const room = getRoomOrThrow(roomPin);
+  if (room.status !== "leaderboard") {
+    throw new HttpError(409, "Leaderboard must be shown before moving to the next question.");
+  }
+
   room.currentQuestionIndex += 1;
-  room.status = "question";
+  room.status = "question_live";
   return buildQuestionState(roomPin);
+}
+
+export async function showLeaderboard(roomPin: string) {
+  const room = getRoomOrThrow(roomPin);
+  if (room.status !== "reveal") {
+    throw new HttpError(409, "Reveal must complete before showing the leaderboard.");
+  }
+
+  const quiz = await QuizModel.findById(room.quizId).lean();
+  if (!quiz) {
+    throw new HttpError(404, "Quiz not found.");
+  }
+
+  const leaderboard = buildRankedLeaderboard(getSortedPlayers(room.players));
+  const basePayload = {
+    roomPin,
+    questionIndex: room.currentQuestionIndex,
+    totalQuestions: quiz.questions.length,
+    leaderboard,
+  };
+
+  if (room.currentQuestionIndex >= quiz.questions.length - 1) {
+    room.status = "finished";
+
+    await GameSessionModel.updateOne(
+      { roomPin },
+      {
+        status: "finished",
+        endedAt: new Date(),
+        finalLeaderboard: leaderboard.map((entry) => ({
+          playerId: entry.playerId,
+          displayName: entry.displayName,
+          avatarId: room.players.get(entry.playerId)?.avatarId ?? "spark",
+          score: entry.score,
+          correctAnswers: entry.correctAnswers,
+        })),
+      },
+    );
+
+    return {
+      type: "game:end" as const,
+      payload: {
+        ...basePayload,
+        podium: leaderboard.slice(0, 3),
+      },
+    };
+  }
+
+  room.status = "leaderboard";
+  return {
+    type: "leaderboard" as const,
+    payload: {
+      ...basePayload,
+      nextQuestionIndex: room.currentQuestionIndex + 1,
+    },
+  };
 }
 
 export async function getCurrentQuestion(roomPin: string) {
   const room = getRoomOrThrow(roomPin);
+  if (room.status !== "question_live") {
+    throw new HttpError(400, "No active question.");
+  }
+
   const quiz = await QuizModel.findById(room.quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
@@ -211,6 +337,10 @@ export async function getCurrentQuestion(roomPin: string) {
 
 export async function submitAnswer(roomPin: string, playerId: string, questionId: string, optionId: string) {
   const room = getRoomOrThrow(roomPin);
+  if (room.status !== "question_live") {
+    throw new HttpError(409, "Answers can only be submitted while the question is live.");
+  }
+
   const quiz = await QuizModel.findById(room.quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
@@ -267,11 +397,11 @@ export async function submitAnswer(roomPin: string, playerId: string, questionId
   return {
     answerCount: questionAnswers.size,
     playerCount: room.players.size,
-    distribution: question.options.map((option) => ({
-      optionId: option.id,
-      text: option.text,
-      count: [...questionAnswers.values()].filter((entry) => entry.optionId === option.id).length,
-      isCorrect: option.id === question.correctOptionId,
+    distribution: buildDistribution(question, questionAnswers).map((entry) => ({
+      optionId: entry.optionId,
+      text: entry.text,
+      count: entry.count,
+      isCorrect: entry.isCorrect,
     })),
   };
 }
@@ -283,6 +413,8 @@ export async function advanceAfterQuestion(roomPin: string) {
   }
 
   room.currentRoundClosed = true;
+  room.status = "reveal";
+  room.timerEndsAt = undefined;
   if (room.timerHandle) {
     clearTimeout(room.timerHandle);
     room.timerHandle = undefined;
@@ -299,60 +431,29 @@ export async function advanceAfterQuestion(roomPin: string) {
   }
 
   const questionAnswers = room.answersByQuestion.get(question.id) ?? new Map<string, AnswerRecord>();
-  const leaderboard = buildRankedLeaderboard(getSortedPlayers(room.players));
-  const distribution = question.options.map((option) => ({
-    optionId: option.id,
-    text: option.text,
-    count: [...questionAnswers.values()].filter((entry) => entry.optionId === option.id).length,
-    isCorrect: option.id === question.correctOptionId,
+  const distribution = buildDistribution(question, questionAnswers);
+  const correctOption = question.options.find((option) => option.id === question.correctOptionId);
+  const playerReveals = [...room.players.values()].map((player) => ({
+    socketId: player.socketId,
+    playerId: player.id,
+    payload: buildPlayerRevealPayload(roomPin, question, player, questionAnswers.get(player.id)),
   }));
 
-  if (room.currentQuestionIndex >= quiz.questions.length - 1) {
-    room.status = "finished";
-    await GameSessionModel.updateOne(
-      { roomPin },
-      {
-        status: "finished",
-        endedAt: new Date(),
-        finalLeaderboard: leaderboard.map((entry) => ({
-          playerId: entry.playerId,
-          displayName: entry.displayName,
-          avatarId: room.players.get(entry.playerId)?.avatarId ?? "spark",
-          score: entry.score,
-          correctAnswers: entry.correctAnswers,
-        })),
-      },
-    );
+  await GameSessionModel.updateOne({ roomPin }, { status: "reveal" });
 
-    return {
-      type: "game:end" as const,
-      payload: {
-        roomPin,
-        question: {
-          id: question.id,
-          prompt: question.prompt,
-          correctOptionId: question.correctOptionId,
-        },
-        distribution,
-        leaderboard,
-        podium: leaderboard.slice(0, 3),
-      },
-    };
-  }
-
-  room.status = "leaderboard";
   return {
-    type: "question:end" as const,
-    payload: {
-      question: {
-        id: question.id,
-        prompt: question.prompt,
-        correctOptionId: question.correctOptionId,
-      },
-      distribution,
-      leaderboard,
-      nextQuestionIndex: room.currentQuestionIndex + 1,
+    roomPin,
+    questionIndex: room.currentQuestionIndex,
+    totalQuestions: quiz.questions.length,
+    question: {
+      id: question.id,
+      prompt: question.prompt,
+      correctOptionId: question.correctOptionId,
+      correctOptionText: correctOption?.text ?? "",
     },
+    distribution,
+    nextStage: room.currentQuestionIndex >= quiz.questions.length - 1 ? ("finished" as const) : ("leaderboard" as const),
+    playerReveals,
   };
 }
 
@@ -377,12 +478,28 @@ export async function reconnectHost(roomPin: string, socketId: string) {
   return buildRoomState(roomPin);
 }
 
-export async function buildRoomState(roomPin: string) {
+export async function buildRoomState(roomPin: string, viewerPlayerId?: string) {
   const room = getRoomOrThrow(roomPin);
   const quiz = await QuizModel.findById(room.quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
   }
+
+  const currentQuestion = room.currentQuestionIndex >= 0 ? quiz.questions[room.currentQuestionIndex] : undefined;
+  const currentQuestionAnswers = currentQuestion ? room.answersByQuestion.get(currentQuestion.id) ?? new Map<string, AnswerRecord>() : undefined;
+  const viewerAnswer = viewerPlayerId && currentQuestionAnswers ? currentQuestionAnswers.get(viewerPlayerId) : undefined;
+  const viewerPlayer = viewerPlayerId ? room.players.get(viewerPlayerId) : undefined;
+  const correctOption =
+    currentQuestion && (room.status === "reveal" || room.status === "leaderboard" || room.status === "finished")
+      ? currentQuestion.options.find((option) => option.id === currentQuestion.correctOptionId)
+      : undefined;
+
+  const viewerRoundState =
+    room.status === "question_live" && viewerAnswer
+      ? "answer_locked"
+      : room.status === "question_live"
+        ? "question_live"
+        : room.status;
 
   return {
     roomPin: room.roomPin,
@@ -399,21 +516,17 @@ export async function buildRoomState(roomPin: string) {
       visibility: quiz.visibility,
     },
     currentQuestion:
-      room.currentQuestionIndex >= 0
+      currentQuestion
         ? {
-            id: quiz.questions[room.currentQuestionIndex]?.id,
-            prompt: quiz.questions[room.currentQuestionIndex]?.prompt,
-            options:
-              quiz.questions[room.currentQuestionIndex]?.options.map((option) => ({
-                id: option.id,
-                text: option.text,
-              })) ?? [],
-            timeLimitSeconds: quiz.questions[room.currentQuestionIndex]?.timeLimitSeconds,
-            points: quiz.questions[room.currentQuestionIndex]?.points,
-            correctOptionId:
-              room.status === "leaderboard" || room.status === "finished"
-                ? quiz.questions[room.currentQuestionIndex]?.correctOptionId
-                : undefined,
+            id: currentQuestion.id,
+            prompt: currentQuestion.prompt,
+            options: currentQuestion.options.map((option) => ({
+              id: option.id,
+              text: option.text,
+            })),
+            timeLimitSeconds: currentQuestion.timeLimitSeconds,
+            points: currentQuestion.points,
+            correctOptionId: correctOption?.id,
           }
         : null,
     players: getSortedPlayers(room.players).map((player) => ({
@@ -424,6 +537,18 @@ export async function buildRoomState(roomPin: string) {
       correctAnswers: player.correctAnswers,
       connected: player.connected,
     })),
+    viewerState:
+      viewerPlayerId && viewerPlayer
+        ? {
+            playerId: viewerPlayerId,
+            roundState: viewerRoundState,
+            selectedOptionId: viewerAnswer?.optionId,
+            latestQuestionResult:
+              currentQuestion && correctOption && (room.status === "reveal" || room.status === "leaderboard" || room.status === "finished")
+                ? buildPlayerRevealPayload(roomPin, currentQuestion, viewerPlayer, viewerAnswer)
+                : undefined,
+          }
+        : undefined,
   };
 }
 
@@ -439,8 +564,11 @@ export async function buildQuestionState(roomPin: string) {
     throw new HttpError(400, "No question available.");
   }
 
+  room.status = "question_live";
   room.timerEndsAt = Date.now() + question.timeLimitSeconds * 1000;
   room.currentRoundClosed = false;
+
+  await GameSessionModel.updateOne({ roomPin }, { status: "question_live" });
 
   return {
     roomPin,

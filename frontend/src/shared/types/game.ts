@@ -1,3 +1,7 @@
+export type RoomRoundState = "waiting" | "question_live" | "reveal" | "leaderboard" | "finished";
+
+export type ViewerRoundState = "waiting" | "question_live" | "answer_locked" | "reveal" | "leaderboard" | "finished";
+
 export interface QuizSummary {
   _id: string;
   title: string;
@@ -19,7 +23,7 @@ export interface QuizSummary {
 export interface RoomState {
   roomPin: string;
   hostName: string;
-  status: "lobby" | "question" | "leaderboard" | "finished";
+  status: RoomRoundState;
   currentQuestionIndex: number;
   timerEndsAt: number | null;
   quiz: {
@@ -46,6 +50,12 @@ export interface RoomState {
     correctAnswers: number;
     connected: boolean;
   }>;
+  viewerState?: {
+    playerId: string;
+    roundState: ViewerRoundState;
+    selectedOptionId?: string;
+    latestQuestionResult?: PlayerRevealPayload;
+  };
 }
 
 export interface QuestionShowPayload {
@@ -79,18 +89,42 @@ export interface LeaderboardEntry {
   connected: boolean;
 }
 
-export interface RoundEndPayload {
+export interface QuestionRevealPayload {
+  roomPin: string;
+  questionIndex: number;
+  totalQuestions: number;
   question: {
     id: string;
     prompt: string;
     correctOptionId: string;
+    correctOptionText: string;
   };
   distribution: AnswerDistribution[];
+  nextStage: "leaderboard" | "finished";
+}
+
+export interface PlayerRevealPayload {
+  roomPin: string;
+  questionId: string;
+  playerId: string;
+  selectedOptionId?: string;
+  selectedOptionText?: string;
+  correctOptionId: string;
+  correctOptionText: string;
+  isCorrect: boolean;
+  scoreAwarded: number;
+  totalScore: number;
+}
+
+export interface LeaderboardPayload {
+  roomPin: string;
+  questionIndex: number;
+  totalQuestions: number;
   leaderboard: LeaderboardEntry[];
   nextQuestionIndex?: number;
 }
 
-export interface GameEndPayload extends RoundEndPayload {
+export interface GameEndPayload extends LeaderboardPayload {
   roomPin: string;
   podium: LeaderboardEntry[];
 }

@@ -10,6 +10,7 @@ import {
   nextQuestion,
   reconnectHost,
   scheduleRoundTimeout,
+  showLeaderboard,
   startGame,
   submitAnswer,
 } from "../services/gameService.js";
@@ -35,15 +36,21 @@ async function handleAsync(socket: Socket, work: () => Promise<void>) {
 
 export function registerSocketHandlers(io: Server) {
   async function finalizeRound(roomPin: string) {
-    const roundResult = await advanceAfterQuestion(roomPin);
-    if (!roundResult) {
+    const revealPayload = await advanceAfterQuestion(roomPin);
+    if (!revealPayload) {
       return;
     }
 
-    io.to(roomPin).emit("question:end", roundResult.payload);
-    io.to(roomPin).emit("leaderboard:update", roundResult.payload.leaderboard);
-    if (roundResult.type === "game:end") {
-      io.to(roomPin).emit("game:end", roundResult.payload);
+    io.to(roomPin).emit("question:reveal", {
+      roomPin: revealPayload.roomPin,
+      questionIndex: revealPayload.questionIndex,
+      totalQuestions: revealPayload.totalQuestions,
+      question: revealPayload.question,
+      distribution: revealPayload.distribution,
+      nextStage: revealPayload.nextStage,
+    });
+    for (const playerReveal of revealPayload.playerReveals) {
+      io.to(playerReveal.socketId).emit("player:reveal", playerReveal.payload);
     }
     io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
   }
@@ -127,6 +134,18 @@ export function registerSocketHandlers(io: Server) {
         const questionState = await nextQuestion(roomPin);
         scheduleRoundTimeout(roomPin, finalizeRound);
         io.to(roomPin).emit("question:show", questionState);
+        io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
+      });
+    });
+
+    socket.on("game:showLeaderboard", (roomPin: string) => {
+      void handleAsync(socket, async () => {
+        const result = await showLeaderboard(roomPin);
+        if (result.type === "game:end") {
+          io.to(roomPin).emit("game:end", result.payload);
+        } else {
+          io.to(roomPin).emit("leaderboard:update", result.payload);
+        }
         io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
       });
     });

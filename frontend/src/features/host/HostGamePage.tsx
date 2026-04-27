@@ -8,7 +8,7 @@ import { TimerRing } from "../../shared/components/TimerRing";
 import { useGameSounds } from "../../shared/hooks/useGameSounds";
 import { useSoundPreference } from "../../shared/hooks/useSoundPreference";
 import { socket } from "../../shared/socket/socketClient";
-import type { AnswerDistribution, GameEndPayload, QuestionShowPayload, RoomState, RoundEndPayload } from "../../shared/types/game";
+import type { AnswerDistribution, GameEndPayload, LeaderboardPayload, QuestionRevealPayload, QuestionShowPayload, RoomState } from "../../shared/types/game";
 
 export function HostGamePage() {
   const navigate = useNavigate();
@@ -16,15 +16,15 @@ export function HostGamePage() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [question, setQuestion] = useState<QuestionShowPayload | null>(null);
   const [distribution, setDistribution] = useState<AnswerDistribution[]>([]);
-  const [leaderboard, setLeaderboard] = useState<RoundEndPayload["leaderboard"]>([]);
-  const [roundEnded, setRoundEnded] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardPayload["leaderboard"]>([]);
+  const [reveal, setReveal] = useState<QuestionRevealPayload | null>(null);
   const [lastResult, setLastResult] = useState<GameEndPayload | null>(null);
   const [error, setError] = useState("");
   const { enabled: soundEnabled, toggle: toggleSound } = useSoundPreference();
 
   useGameSounds({
     questionId: question?.question.id,
-    roundEnded,
+    roundEnded: Boolean(reveal),
     enabled: soundEnabled,
   });
 
@@ -34,7 +34,7 @@ export function HostGamePage() {
       if (state.status === "finished") {
         navigate(`/results/${roomPin}`);
       }
-      if (state.status === "question" && state.currentQuestion?.id && state.timerEndsAt) {
+      if (state.status === "question_live" && state.currentQuestion?.id && state.timerEndsAt) {
         setQuestion({
           roomPin,
           questionIndex: state.currentQuestionIndex,
@@ -66,17 +66,21 @@ export function HostGamePage() {
       }
       setQuestion(payload);
       setDistribution([]);
-      setRoundEnded(false);
+      setReveal(null);
+      setLeaderboard([]);
     };
 
     const handleStats = (payload: { distribution: AnswerDistribution[] }) => {
       setDistribution(payload.distribution);
     };
 
-    const handleQuestionEnd = (payload: RoundEndPayload) => {
+    const handleQuestionReveal = (payload: QuestionRevealPayload) => {
       setDistribution(payload.distribution);
+      setReveal(payload);
+    };
+
+    const handleLeaderboard = (payload: LeaderboardPayload) => {
       setLeaderboard(payload.leaderboard);
-      setRoundEnded(true);
     };
 
     const handleSocketError = (payload: { message: string }) => {
@@ -91,7 +95,8 @@ export function HostGamePage() {
     socket.on("state:sync", handleStateSync);
     socket.on("question:show", handleQuestionShow);
     socket.on("stats:update", handleStats);
-    socket.on("question:end", handleQuestionEnd);
+    socket.on("question:reveal", handleQuestionReveal);
+    socket.on("leaderboard:update", handleLeaderboard);
     socket.on("game:end", handleGameEnd);
     socket.on("error", handleSocketError);
 
@@ -99,7 +104,8 @@ export function HostGamePage() {
       socket.off("state:sync", handleStateSync);
       socket.off("question:show", handleQuestionShow);
       socket.off("stats:update", handleStats);
-      socket.off("question:end", handleQuestionEnd);
+      socket.off("question:reveal", handleQuestionReveal);
+      socket.off("leaderboard:update", handleLeaderboard);
       socket.off("game:end", handleGameEnd);
       socket.off("error", handleSocketError);
     };
@@ -126,12 +132,17 @@ export function HostGamePage() {
     }));
   }, [distribution, question]);
 
-  function showNextQuestion() {
+  function advanceRound() {
     if (!room) {
       return;
     }
 
     setError("");
+    if (room.status === "reveal") {
+      socket.emit("game:showLeaderboard", roomPin);
+      return;
+    }
+
     if (room.currentQuestionIndex >= room.quiz.questionCount - 1) {
       if (lastResult) {
         navigate(`/results/${lastResult.roomPin}`);
@@ -156,7 +167,10 @@ export function HostGamePage() {
             </div>
             <div className="flex flex-col items-end gap-3">
               <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
-              <TimerRing endsAt={question?.timerEndsAt ?? null} totalSeconds={question?.question.timeLimitSeconds ?? 15} />
+              <TimerRing
+                endsAt={room?.status === "question_live" ? (question?.timerEndsAt ?? null) : null}
+                totalSeconds={question?.question.timeLimitSeconds ?? 15}
+              />
             </div>
           </div>
 
@@ -183,14 +197,20 @@ export function HostGamePage() {
             })}
           </div>
 
-          {roundEnded ? (
+          {room?.status === "reveal" || room?.status === "leaderboard" ? (
             <>
               <button
                 type="button"
-                onClick={showNextQuestion}
+                onClick={advanceRound}
                 className="mt-8 rounded-2xl bg-electric px-6 py-4 font-bold text-slate-950 transition hover:scale-[1.01]"
               >
-                {room && room.currentQuestionIndex >= room.quiz.questionCount - 1 ? "View Final Results" : "Next Question"}
+                {room?.status === "reveal"
+                  ? room.currentQuestionIndex >= room.quiz.questionCount - 1
+                    ? "View Final Podium"
+                    : "Show Leaderboard"
+                  : room && room.currentQuestionIndex >= room.quiz.questionCount - 1
+                    ? "View Final Results"
+                    : "Next Question"}
               </button>
               {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
             </>
@@ -198,7 +218,9 @@ export function HostGamePage() {
         </GlassPanel>
 
         <GlassPanel themeId={room?.quiz.themeId}>
-          <h2 className="font-display text-2xl font-bold">Live Leaderboard</h2>
+          <h2 className="font-display text-2xl font-bold">
+            {room?.status === "reveal" ? "Reveal" : "Leaderboard"}
+          </h2>
           <div className="mt-5 space-y-3">
             {(leaderboard.length ? leaderboard : room?.players ?? []).map((entry, index) => (
               <div key={"playerId" in entry ? entry.playerId : entry.id} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">

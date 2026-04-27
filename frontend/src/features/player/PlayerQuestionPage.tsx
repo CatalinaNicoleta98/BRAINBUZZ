@@ -8,7 +8,7 @@ import { TimerRing } from "../../shared/components/TimerRing";
 import { useGameSounds } from "../../shared/hooks/useGameSounds";
 import { useSoundPreference } from "../../shared/hooks/useSoundPreference";
 import { socket } from "../../shared/socket/socketClient";
-import type { GameEndPayload, QuestionShowPayload, RoomState, RoundEndPayload } from "../../shared/types/game";
+import type { GameEndPayload, LeaderboardPayload, PlayerRevealPayload, QuestionRevealPayload, QuestionShowPayload, RoomState } from "../../shared/types/game";
 import { getPlayerSession } from "../../shared/utils/storage";
 
 const waitingQuotes = [
@@ -26,7 +26,9 @@ export function PlayerQuestionPage() {
   const [question, setQuestion] = useState<QuestionShowPayload | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [lockedIn, setLockedIn] = useState(false);
-  const [roundEnd, setRoundEnd] = useState<RoundEndPayload | null>(null);
+  const [reveal, setReveal] = useState<QuestionRevealPayload | null>(null);
+  const [playerReveal, setPlayerReveal] = useState<PlayerRevealPayload | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardPayload["leaderboard"]>([]);
   const [pendingOptionId, setPendingOptionId] = useState<string | null>(null);
   const [waitingQuote, setWaitingQuote] = useState(waitingQuotes[0]);
   const [error, setError] = useState("");
@@ -37,7 +39,7 @@ export function PlayerQuestionPage() {
   useGameSounds({
     questionId: question?.question.id,
     lockedIn,
-    roundEnded: Boolean(roundEnd),
+    roundEnded: Boolean(reveal),
     enabled: soundEnabled,
   });
 
@@ -54,7 +56,7 @@ export function PlayerQuestionPage() {
         return;
       }
 
-      if (state.status === "leaderboard" && state.currentQuestion?.id) {
+      if ((state.status === "reveal" || state.status === "leaderboard") && state.currentQuestion?.id) {
         setQuestion({
           roomPin,
           questionIndex: state.currentQuestionIndex,
@@ -68,14 +70,9 @@ export function PlayerQuestionPage() {
             points: state.currentQuestion.points ?? 0,
           },
         });
-        setRoundEnd({
-          question: {
-            id: state.currentQuestion.id,
-            prompt: state.currentQuestion.prompt ?? "",
-            correctOptionId: state.currentQuestion.correctOptionId ?? "",
-          },
-          distribution: [],
-          leaderboard: state.players.map((player, index) => ({
+        setPlayerReveal(state.viewerState?.latestQuestionResult ?? null);
+        setLeaderboard(
+          state.players.map((player, index) => ({
             rank: index + 1,
             playerId: player.id,
             displayName: player.displayName,
@@ -84,13 +81,13 @@ export function PlayerQuestionPage() {
             correctAnswers: player.correctAnswers,
             connected: player.connected,
           })),
-        });
-        setLockedIn(true);
+        );
+        setLockedIn(state.viewerState?.roundState === "answer_locked" || state.status === "reveal");
         setPendingOptionId(null);
         return;
       }
 
-      if (state.status !== "question" || !state.currentQuestion?.id || !state.timerEndsAt) {
+      if (state.status !== "question_live" || !state.currentQuestion?.id || !state.timerEndsAt) {
         return;
       }
 
@@ -107,6 +104,11 @@ export function PlayerQuestionPage() {
           points: state.currentQuestion.points ?? 0,
         },
       });
+      setLockedIn(state.viewerState?.roundState === "answer_locked");
+      setSelectedOptionId(state.viewerState?.selectedOptionId ?? null);
+      setReveal(null);
+      setPlayerReveal(null);
+      setLeaderboard([]);
     });
 
     const handleQuestionShow = (payload: QuestionShowPayload) => {
@@ -116,7 +118,9 @@ export function PlayerQuestionPage() {
       setQuestion(payload);
       setSelectedOptionId(null);
       setLockedIn(false);
-      setRoundEnd(null);
+      setReveal(null);
+      setPlayerReveal(null);
+      setLeaderboard([]);
       setPendingOptionId(null);
       setError("");
       setWaitingQuote(waitingQuotes[Math.floor(Math.random() * waitingQuotes.length)] ?? waitingQuotes[0]);
@@ -129,9 +133,18 @@ export function PlayerQuestionPage() {
       setWaitingQuote(waitingQuotes[Math.floor(Math.random() * waitingQuotes.length)] ?? waitingQuotes[0]);
     };
 
-    const handleQuestionEnd = (payload: RoundEndPayload) => {
-      setRoundEnd(payload);
+    const handleQuestionReveal = (payload: QuestionRevealPayload) => {
+      setReveal(payload);
       setPendingOptionId(null);
+    };
+
+    const handlePlayerReveal = (payload: PlayerRevealPayload) => {
+      setPlayerReveal(payload);
+      setLockedIn(false);
+    };
+
+    const handleLeaderboard = (payload: LeaderboardPayload) => {
+      setLeaderboard(payload.leaderboard);
     };
 
     const handleGameEnd = (payload: GameEndPayload) => {
@@ -145,14 +158,18 @@ export function PlayerQuestionPage() {
 
     socket.on("question:show", handleQuestionShow);
     socket.on("answer:received", handleAnswerReceived);
-    socket.on("question:end", handleQuestionEnd);
+    socket.on("question:reveal", handleQuestionReveal);
+    socket.on("player:reveal", handlePlayerReveal);
+    socket.on("leaderboard:update", handleLeaderboard);
     socket.on("game:end", handleGameEnd);
     socket.on("error", handleSocketError);
 
     return () => {
       socket.off("question:show", handleQuestionShow);
       socket.off("answer:received", handleAnswerReceived);
-      socket.off("question:end", handleQuestionEnd);
+      socket.off("question:reveal", handleQuestionReveal);
+      socket.off("player:reveal", handlePlayerReveal);
+      socket.off("leaderboard:update", handleLeaderboard);
       socket.off("game:end", handleGameEnd);
       socket.off("error", handleSocketError);
     };
@@ -191,7 +208,7 @@ export function PlayerQuestionPage() {
             <div className="flex flex-col items-end gap-3">
               <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
               <TimerRing
-                endsAt={lockedIn || roundEnd ? null : (question?.timerEndsAt ?? null)}
+                endsAt={lockedIn || reveal ? null : (question?.timerEndsAt ?? null)}
                 totalSeconds={question?.question.timeLimitSeconds ?? 15}
               />
             </div>
@@ -209,7 +226,7 @@ export function PlayerQuestionPage() {
 
           {error ? <div className="mt-5 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
 
-          {!lockedIn && !roundEnd ? (
+          {!lockedIn && !reveal ? (
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               {question?.question.options.map((option, index) => {
                 const isSelected = pendingOptionId === option.id;
@@ -232,7 +249,7 @@ export function PlayerQuestionPage() {
             </div>
           ) : null}
 
-          {lockedIn && !roundEnd ? (
+          {lockedIn && !reveal ? (
             <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
               <div className="text-sm uppercase tracking-[0.3em] text-electric">Answer Locked</div>
               <h2 className="mt-3 font-display text-3xl font-bold">Waiting for the rest of the room...</h2>
@@ -243,7 +260,7 @@ export function PlayerQuestionPage() {
             </div>
           ) : null}
 
-          {roundEnd ? (
+          {reveal ? (
             <div className="mt-8 space-y-6">
               <div className="rounded-[2rem] border border-electric/25 bg-electric/10 p-6">
                 <div className="text-sm uppercase tracking-[0.3em] text-electric">Round Complete</div>
@@ -251,13 +268,13 @@ export function PlayerQuestionPage() {
                 <p className="mt-3 text-slate-300">
                   Correct answer:{" "}
                   <span className="font-semibold text-white">
-                    {question?.question.options.find((option) => option.id === roundEnd.question.correctOptionId)?.text ?? "Revealed on host screen"}
+                    {playerReveal?.correctOptionText ?? reveal.question.correctOptionText}
                   </span>
                 </p>
               </div>
 
               <div className="grid gap-3">
-                {roundEnd.leaderboard.map((entry) => (
+                {leaderboard.map((entry) => (
                   <div key={entry.playerId} className="flex items-center justify-between rounded-2xl bg-slate-950/60 px-4 py-4">
                     <div className="flex items-center gap-3">
                       <AvatarBadge avatarId={entry.avatarId ?? "spark"} size="sm" />
