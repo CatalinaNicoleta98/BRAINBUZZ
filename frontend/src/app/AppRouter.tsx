@@ -3,6 +3,7 @@ import { CreatorAuthPage } from "../features/creator/CreatorAuthPage";
 import { CreatorStudioPage } from "../features/creator/CreatorStudioPage";
 import { HomePage } from "../features/quiz/HomePage";
 import { HostCreateRoomPage } from "../features/host/HostCreateRoomPage";
+import { HostQuizLibraryPage } from "../features/host/HostQuizLibraryPage";
 import { HostLobbyPage } from "../features/host/HostLobbyPage";
 import { HostGamePage } from "../features/host/HostGamePage";
 import { PlayerJoinPage } from "../features/player/PlayerJoinPage";
@@ -24,6 +25,7 @@ export function AppRouter() {
           </ProtectedRoute>
         }
       />
+      <Route path="/host/library" element={<HostQuizLibraryPage />} />
       <Route path="/host/create" element={<HostCreateRoomPage />} />
       <Route path="/host/lobby/:roomPin" element={<HostLobbyPage />} />
       <Route path="/host/game/:roomPin" element={<HostGamePage />} />

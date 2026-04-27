@@ -68,6 +68,11 @@ export function getRoom(roomPin: string) {
 }
 
 export async function createRoom(quizId: string, hostName: string, hostSocketId: string, themeId?: string) {
+  const normalizedHostName = hostName.trim();
+  if (!normalizedHostName) {
+    throw new HttpError(400, "Host display name is required.");
+  }
+
   const quiz = await QuizModel.findById(quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
@@ -81,7 +86,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
   liveRooms.set(roomPin, {
     roomPin,
     hostSocketId,
-    hostName,
+    hostName: normalizedHostName,
     quizId: quiz._id.toString(),
     quizTitle: quiz.title,
     themeId: themeId ?? quiz.themeId ?? "midnight",
@@ -96,7 +101,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
     roomPin,
     quizId: quiz._id,
     quizTitle: quiz.title,
-    hostName,
+    hostName: normalizedHostName,
     themeId: themeId ?? quiz.themeId ?? "midnight",
     status: "lobby",
   });
@@ -108,8 +113,12 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
 }
 
 export async function joinRoom(roomPin: string, displayName: string, avatarId: string, socketId: string, playerId?: string) {
-  const room = getRoomOrThrow(roomPin);
+  const normalizedRoomPin = roomPin.trim();
+  const room = getRoomOrThrow(normalizedRoomPin);
   const normalizedName = displayName.trim();
+  if (!normalizedName) {
+    throw new HttpError(400, "Display name is required.");
+  }
 
   const nameConflict = [...room.players.values()].find(
     (player) => player.displayName.toLowerCase() === normalizedName.toLowerCase() && player.id !== playerId,
@@ -139,7 +148,7 @@ export async function joinRoom(roomPin: string, displayName: string, avatarId: s
 
   return {
     playerId: player.id,
-    room: await buildRoomState(roomPin),
+    room: await buildRoomState(normalizedRoomPin),
   };
 }
 

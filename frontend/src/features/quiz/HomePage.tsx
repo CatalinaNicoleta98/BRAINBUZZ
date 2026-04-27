@@ -32,7 +32,7 @@ export function HomePage() {
           </div>
           <div className="flex flex-col gap-4 sm:flex-row">
             <Link
-              to="/host/create"
+              to="/host/library"
               className="rounded-2xl bg-electric px-6 py-4 text-center font-bold text-slate-950 transition hover:scale-[1.01]"
             >
               Host a Game

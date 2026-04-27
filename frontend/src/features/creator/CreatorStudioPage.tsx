@@ -75,6 +75,10 @@ export function CreatorStudioPage() {
     ]);
   }
 
+  function removeQuestion(index: number) {
+    setQuestions((current) => current.filter((_, questionIndex) => questionIndex !== index));
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
@@ -97,6 +101,9 @@ export function CreatorStudioPage() {
       setQuizzes(await fetchMyQuizzes(currentToken));
       setTitle("");
       setDescription("");
+      setCoverEmoji("🧠");
+      setThemeId(themeOptions[0].id);
+      setVisibility("private");
       setQuestions([
         {
           prompt: "",
@@ -203,6 +210,17 @@ export function CreatorStudioPage() {
 
                 {questions.map((question, index) => (
                   <div key={`question-${index}`} className="space-y-4 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="font-display text-xl">Question {index + 1}</h3>
+                      <button
+                        type="button"
+                        onClick={() => removeQuestion(index)}
+                        disabled={questions.length === 1}
+                        className="rounded-2xl border border-rose-400/35 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:border-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Delete question
+                      </button>
+                    </div>
                     <input
                       value={question.prompt}
                       onChange={(event) => updateQuestion(index, (current) => ({ ...current, prompt: event.target.value }))}

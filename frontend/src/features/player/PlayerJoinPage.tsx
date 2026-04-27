@@ -20,6 +20,8 @@ export function PlayerJoinPage() {
     event.preventDefault();
     setError("");
     setLoading(true);
+    const normalizedRoomPin = roomPin.trim();
+    const normalizedDisplayName = displayName.trim();
 
     const handleSocketError = (payload: { message: string }) => {
       setError(payload.message);
@@ -28,12 +30,12 @@ export function PlayerJoinPage() {
     };
 
     socket.on("error", handleSocketError);
-    socket.emit("room:join", { roomPin, displayName, avatarId }, (response: { playerId: string; room: { roomPin: string } }) => {
+    socket.emit("room:join", { roomPin: normalizedRoomPin, displayName: normalizedDisplayName, avatarId }, (response: { playerId: string; room: { roomPin: string } }) => {
       socket.off("error", handleSocketError);
       savePlayerSession({
         roomPin: response.room.roomPin,
         playerId: response.playerId,
-        displayName,
+        displayName: normalizedDisplayName,
         avatarId,
       });
       navigate(`/player/lobby/${response.room.roomPin}`);

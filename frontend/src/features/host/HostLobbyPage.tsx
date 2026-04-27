@@ -12,10 +12,12 @@ export function HostLobbyPage() {
   const navigate = useNavigate();
   const { roomPin = "" } = useParams();
   const [room, setRoom] = useState<RoomState | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const localRoom = getHostRoom();
     if (!localRoom || localRoom !== roomPin) {
+      navigate("/host/library");
       return;
     }
 
@@ -33,16 +35,23 @@ export function HostLobbyPage() {
       navigate(`/host/game/${roomPin}`);
     };
 
+    const handleSocketError = (payload: { message: string }) => {
+      setError(payload.message);
+    };
+
     socket.on("state:sync", handleStateSync);
     socket.on("question:show", handleQuestionShow);
+    socket.on("error", handleSocketError);
 
     return () => {
       socket.off("state:sync", handleStateSync);
       socket.off("question:show", handleQuestionShow);
+      socket.off("error", handleSocketError);
     };
   }, [navigate, roomPin]);
 
   function startGame() {
+    setError("");
     socket.emit("game:start", roomPin);
   }
 
@@ -77,6 +86,7 @@ export function HostLobbyPage() {
           >
             Start Live Game
           </button>
+          {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
         </GlassPanel>
 
         <GlassPanel themeId={room?.quiz.themeId}>

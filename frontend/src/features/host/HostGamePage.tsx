@@ -19,6 +19,7 @@ export function HostGamePage() {
   const [leaderboard, setLeaderboard] = useState<RoundEndPayload["leaderboard"]>([]);
   const [roundEnded, setRoundEnded] = useState(false);
   const [lastResult, setLastResult] = useState<GameEndPayload | null>(null);
+  const [error, setError] = useState("");
   const { enabled: soundEnabled, toggle: toggleSound } = useSoundPreference();
 
   useGameSounds({
@@ -78,6 +79,10 @@ export function HostGamePage() {
       setRoundEnded(true);
     };
 
+    const handleSocketError = (payload: { message: string }) => {
+      setError(payload.message);
+    };
+
     const handleGameEnd = (payload: GameEndPayload) => {
       setLastResult(payload);
       navigate(`/results/${payload.roomPin}`);
@@ -88,6 +93,7 @@ export function HostGamePage() {
     socket.on("stats:update", handleStats);
     socket.on("question:end", handleQuestionEnd);
     socket.on("game:end", handleGameEnd);
+    socket.on("error", handleSocketError);
 
     return () => {
       socket.off("state:sync", handleStateSync);
@@ -95,6 +101,7 @@ export function HostGamePage() {
       socket.off("stats:update", handleStats);
       socket.off("question:end", handleQuestionEnd);
       socket.off("game:end", handleGameEnd);
+      socket.off("error", handleSocketError);
     };
   }, [navigate, roomPin]);
 
@@ -124,6 +131,7 @@ export function HostGamePage() {
       return;
     }
 
+    setError("");
     if (room.currentQuestionIndex >= room.quiz.questionCount - 1) {
       if (lastResult) {
         navigate(`/results/${lastResult.roomPin}`);
@@ -176,13 +184,16 @@ export function HostGamePage() {
           </div>
 
           {roundEnded ? (
-            <button
-              type="button"
-              onClick={showNextQuestion}
-              className="mt-8 rounded-2xl bg-electric px-6 py-4 font-bold text-slate-950 transition hover:scale-[1.01]"
-            >
-              {room && room.currentQuestionIndex >= room.quiz.questionCount - 1 ? "View Final Results" : "Next Question"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={showNextQuestion}
+                className="mt-8 rounded-2xl bg-electric px-6 py-4 font-bold text-slate-950 transition hover:scale-[1.01]"
+              >
+                {room && room.currentQuestionIndex >= room.quiz.questionCount - 1 ? "View Final Results" : "Next Question"}
+              </button>
+              {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
+            </>
           ) : null}
         </GlassPanel>
 
