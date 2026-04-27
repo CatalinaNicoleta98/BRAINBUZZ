@@ -5,7 +5,6 @@ import { fetchQuizzes } from "../../shared/api/quizzes";
 import { AppShell } from "../../shared/components/AppShell";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { QuizCard } from "../../shared/components/QuizCard";
-import { SectionHeading } from "../../shared/components/SectionHeading";
 import type { QuizSummary } from "../../shared/types/game";
 
 export function HostQuizLibraryPage() {
@@ -39,45 +38,47 @@ export function HostQuizLibraryPage() {
 
   return (
     <AppShell>
-      <div className="space-y-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <SectionHeading
-            eyebrow="Host Library"
-            title="Choose the quiz before you open the room."
-            description={
-              user
-                ? "Your hosting library now includes public BrainBuzz quizzes plus your own creator collection, including private drafts."
-                : "Browse the premade development quiz collection, then continue to room setup and go live."
-            }
-          />
-          <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="inline-flex rounded-full bg-yellow-300 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-950">
+              Host Game
+            </div>
+            <h1 className="mt-4 font-display text-4xl font-bold text-white sm:text-5xl">Pick a quiz and open the room.</h1>
+            <p className="mt-3 max-w-2xl text-slate-200">
+              {user
+                ? "Public BrainBuzz quizzes and your private creator quizzes are all ready to host."
+                : "Choose a premade quiz and start a live game in a few taps."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
             <Link
-              to="/player/join"
-              className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-center font-semibold transition hover:border-electric/60"
+              to="/"
+              className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-center font-semibold text-white transition hover:border-white/20 hover:bg-white/10"
             >
-              Join a Room
+              Home
             </Link>
             <Link
-              to={user ? "/creator/studio" : "/creator/auth"}
-              className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-center font-semibold transition hover:border-skyglow/60"
+              to="/player/join"
+              className="rounded-2xl bg-fuchsia-500 px-5 py-3 text-center font-bold text-white transition hover:bg-fuchsia-400"
             >
-              {user ? "Creator Studio" : "Creator Login"}
+              Join Game
             </Link>
           </div>
         </div>
 
         <GlassPanel>
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-200">Search quizzes</label>
+              <label className="mb-2 block text-sm font-bold uppercase tracking-[0.26em] text-yellow-200">Search quiz library</label>
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
+                className="min-h-14 w-full rounded-[1.5rem] border-2 border-white/15 bg-slate-950/80 px-5 text-white outline-none transition focus:border-yellow-300"
                 placeholder="React, TypeScript, Git, API..."
               />
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-300">
+            <div className="rounded-[1.5rem] bg-yellow-300 px-5 py-4 text-sm font-bold uppercase tracking-[0.24em] text-slate-950">
               {filteredQuizzes.length} quiz{filteredQuizzes.length === 1 ? "" : "zes"} ready to host
             </div>
           </div>
@@ -85,7 +86,7 @@ export function HostQuizLibraryPage() {
 
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredQuizzes.map((quiz) => (
             <QuizCard
               key={quiz._id}
@@ -98,7 +99,7 @@ export function HostQuizLibraryPage() {
 
         {!filteredQuizzes.length ? (
           <GlassPanel>
-            <p className="text-slate-300">
+            <p className="text-slate-200">
               No quizzes matched that search. {user ? "Try another keyword or build one in Creator Studio." : "Sign in as a creator to build your own private set."}
             </p>
           </GlassPanel>

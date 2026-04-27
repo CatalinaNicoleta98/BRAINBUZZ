@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarPicker } from "../../shared/components/AvatarPicker";
 import { GlassPanel } from "../../shared/components/GlassPanel";
-import { SectionHeading } from "../../shared/components/SectionHeading";
 import { socket } from "../../shared/socket/socketClient";
 import { savePlayerSession } from "../../shared/utils/storage";
 import { avatarOptions } from "../../shared/utils/avatars";
@@ -53,46 +53,70 @@ export function PlayerJoinPage() {
 
   return (
     <AppShell>
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <SectionHeading
-          eyebrow="Player Entry"
-          title="Jump in with a PIN and make every answer count."
-          description="BrainBuzz keeps the room synced in real time, so you can join fast and focus on the next question."
-        />
+      <div className="mx-auto flex min-h-[72vh] max-w-3xl items-center justify-center">
         <GlassPanel>
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-200">Room PIN</label>
-              <input
-                value={roomPin}
-                onChange={(event) => setRoomPin(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
-                placeholder="123456"
-                required
-              />
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="inline-flex rounded-full bg-cyan-300 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-950">
+              Join Game
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-200">Display name</label>
-              <input
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
-                placeholder="Team Rocket"
-                required
-              />
+            <h1 className="mt-5 font-display text-4xl font-bold text-white sm:text-5xl">Enter PIN. Pick a name. Play live.</h1>
+            <p className="mt-3 text-slate-200">Fast join on mobile or desktop, with just enough setup to get you in the room.</p>
+          </div>
+
+          <form className="mx-auto mt-8 max-w-2xl space-y-5" onSubmit={handleSubmit}>
+            <div className="grid gap-5 sm:grid-cols-[1.1fr_0.9fr]">
+              <div>
+                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.26em] text-yellow-200">Game PIN</label>
+                <input
+                  value={roomPin}
+                  onChange={(event) => setRoomPin(event.target.value)}
+                  inputMode="numeric"
+                  className="min-h-16 w-full rounded-[1.75rem] border-2 border-white/15 bg-slate-950/80 px-4 text-center font-display text-3xl tracking-[0.35em] text-white outline-none transition focus:border-yellow-300"
+                  placeholder="123456"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.26em] text-yellow-200">Nickname</label>
+                <input
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  className="min-h-16 w-full rounded-[1.75rem] border-2 border-white/15 bg-slate-950/80 px-5 text-lg font-semibold text-white outline-none transition focus:border-cyan-300"
+                  placeholder="Catalina"
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="mb-3 block text-sm font-semibold text-slate-200">Pick an avatar</label>
+
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+              <label className="mb-3 block text-sm font-bold uppercase tracking-[0.26em] text-yellow-200">Choose avatar</label>
               <AvatarPicker selectedAvatarId={avatarId} onSelect={setAvatarId} />
             </div>
+
             {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-electric px-5 py-4 font-bold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-16 w-full rounded-[1.75rem] bg-fuchsia-500 px-5 text-lg font-bold text-white transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Joining..." : "Join Room"}
+              {loading ? "Joining..." : "Join Game"}
             </button>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+              <Link
+                to="/"
+                className="rounded-2xl border border-white/10 px-4 py-3 font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+              >
+                Back to Home
+              </Link>
+              <Link
+                to="/host/library"
+                className="rounded-2xl border border-white/10 px-4 py-3 font-semibold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+              >
+                Host Instead
+              </Link>
+            </div>
           </form>
         </GlassPanel>
       </div>

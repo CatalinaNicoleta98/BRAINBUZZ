@@ -3,7 +3,6 @@ import { FormEvent, useState } from "react";
 import { useAuth } from "../../app/AuthProvider";
 import { AppShell } from "../../shared/components/AppShell";
 import { GlassPanel } from "../../shared/components/GlassPanel";
-import { savePlayerSession } from "../../shared/utils/storage";
 import { useNavigate } from "react-router-dom";
 
 export function HomePage() {
