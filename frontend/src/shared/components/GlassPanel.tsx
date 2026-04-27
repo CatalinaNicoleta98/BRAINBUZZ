@@ -9,8 +9,9 @@ export function GlassPanel({ children, themeId }: GlassPanelProps) {
   const theme = getThemeById(themeId);
 
   return (
-    <div className={`rounded-[2rem] border p-6 shadow-neon backdrop-blur-xl ${theme.panelClassName}`}>
-      {children}
+    <div className={`relative overflow-hidden rounded-[2rem] border p-6 shadow-neon backdrop-blur-xl ${theme.panelClassName}`}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20" />
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }

@@ -73,15 +73,15 @@ export function HostLobbyPage() {
             }
           />
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-3xl bg-white/5 p-5">
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
               <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Quiz</div>
               <div className="mt-2 font-display text-2xl">{room?.quiz.title ?? "..."}</div>
             </div>
-            <div className="rounded-3xl bg-white/5 p-5">
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
               <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Players</div>
               <div className="mt-2 font-display text-2xl">{room?.players.length ?? 0}</div>
             </div>
-            <div className="rounded-3xl bg-white/5 p-5">
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
               <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Questions</div>
               <div className="mt-2 font-display text-2xl">{room?.quiz.questionCount ?? 0}</div>
             </div>
@@ -90,7 +90,7 @@ export function HostLobbyPage() {
             type="button"
             onClick={startGame}
             disabled={!room || room.players.length === 0 || room.status === "finished"}
-            className="mt-8 rounded-2xl bg-berry px-6 py-4 font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-8 w-full rounded-[1.75rem] bg-yellow-300 px-6 py-5 text-lg font-bold text-slate-950 transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {room?.status === "finished" ? "Game Finished" : "Start Live Game"}
           </button>
@@ -121,14 +121,14 @@ export function HostLobbyPage() {
               </div>
             </div>
           </div>
-          <h2 className="font-display text-2xl font-bold">Players in the Lobby</h2>
+          <h2 className="font-display text-3xl font-bold">Players in the Lobby</h2>
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (
-              <div key={player.id} className="flex items-center justify-between rounded-2xl bg-slate-950/60 px-4 py-3">
+              <div key={player.id} className="flex items-center justify-between rounded-[1.5rem] bg-slate-950/60 px-4 py-4">
                 <div className="flex items-center gap-3">
                   <AvatarBadge avatarId={player.avatarId} size="sm" />
                   <div>
-                    <div className="font-semibold">{player.displayName}</div>
+                    <div className="font-semibold text-white">{player.displayName}</div>
                     <div className="text-sm text-slate-400">{player.connected ? "Connected" : "Reconnecting"}</div>
                   </div>
                 </div>
