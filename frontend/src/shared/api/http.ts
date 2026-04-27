@@ -12,8 +12,18 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(body?.message ?? "Request failed.");
+    const body = (await response.json().catch(() => null)) as
+      | {
+          message?: string;
+          errors?: Array<{ path?: string; message?: string }>;
+        }
+      | null;
+
+    const details = body?.errors
+      ?.map((error) => error.message?.trim())
+      .filter((message): message is string => Boolean(message));
+
+    throw new Error(details?.length ? details.join(" ") : body?.message ?? "Request failed.");
   }
 
   return response.json() as Promise<T>;

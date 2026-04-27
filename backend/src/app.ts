@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { ZodError } from "zod";
 import { env } from "./config/env.js";
 import { apiRouter } from "./routes/index.js";
 import { HttpError } from "./utils/httpError.js";
@@ -20,6 +21,17 @@ export function createApp() {
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
     if (error instanceof HttpError) {
       response.status(error.statusCode).json({ message: error.message });
+      return;
+    }
+
+    if (error instanceof ZodError) {
+      response.status(400).json({
+        message: "Quiz payload validation failed.",
+        errors: error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
       return;
     }
 
