@@ -3,10 +3,12 @@ import { Server } from "socket.io";
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { connect } from "./db/connectToDatabase.js";
+import { seedQuizLibrary } from "./services/seedService.js";
 import { registerSocketHandlers } from "./sockets/registerSocketHandlers.js";
 
 async function bootstrap() {
   await connect();
+  await seedQuizLibrary();
 
   const app = createApp();
   const httpServer = createServer(app);

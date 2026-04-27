@@ -4,17 +4,17 @@ import { createId } from "../utils/createId.js";
 import { HttpError } from "../utils/httpError.js";
 
 const quizPayloadSchema = z.object({
-  title: z.string().min(3).max(80),
-  description: z.string().min(10).max(240),
-  createdBy: z.string().min(2).max(40),
+  title: z.string().trim().min(3).max(80),
+  description: z.string().trim().min(10).max(240),
+  createdBy: z.string().trim().min(2).max(40),
   themeId: z.string().min(3).max(40).default("midnight"),
-  coverEmoji: z.string().min(1).max(4).default("🧠"),
+  coverEmoji: z.string().trim().min(1).max(8).default("🧠"),
   visibility: z.enum(["private", "public"]).default("private"),
   questions: z
     .array(
       z.object({
-        prompt: z.string().min(5).max(180),
-        options: z.array(z.string().min(1).max(120)).min(2).max(6),
+        prompt: z.string().trim().min(5).max(180),
+        options: z.array(z.string().trim().min(1).max(120)).min(2).max(6),
         correctOptionIndex: z.number().int().min(0),
         timeLimitSeconds: z.number().int().min(5).max(60),
         points: z.number().int().min(100).max(5000),
@@ -26,10 +26,8 @@ const quizPayloadSchema = z.object({
 
 export type CreateQuizInput = z.infer<typeof quizPayloadSchema>;
 
-export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
-  const parsed = quizPayloadSchema.parse(input);
-
-  const questions = parsed.questions.map((question) => {
+function buildQuestions(parsed: CreateQuizInput) {
+  return parsed.questions.map((question) => {
     if (question.correctOptionIndex >= question.options.length) {
       throw new HttpError(400, "Correct option index is out of range.");
     }
@@ -47,6 +45,11 @@ export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
       points: question.points,
     };
   });
+}
+
+export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
+  const parsed = quizPayloadSchema.parse(input);
+  const questions = buildQuestions(parsed);
 
   return QuizModel.create({
     title: parsed.title,

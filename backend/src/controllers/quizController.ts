@@ -12,7 +12,7 @@ export async function createQuizController(request: Request, response: Response,
 
 export async function listQuizzesController(_request: Request, response: Response, next: NextFunction) {
   try {
-    const quizzes = await listQuizzes();
+    const quizzes = await listQuizzes(response.locals.userId as string | undefined);
     response.json(quizzes);
   } catch (error) {
     next(error);
