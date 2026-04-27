@@ -61,7 +61,7 @@ export function HostLobbyPage() {
 
   return (
     <AppShell themeId={room?.quiz.themeId}>
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="ui-page grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <GlassPanel themeId={room?.quiz.themeId}>
           <SectionHeading
             eyebrow="Lobby"
@@ -73,15 +73,15 @@ export function HostLobbyPage() {
             }
           />
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+            <div className="ui-stat-card p-4 sm:p-5">
               <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Quiz</div>
               <div className="mt-2 font-display text-2xl">{room?.quiz.title ?? "..."}</div>
             </div>
-            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+            <div className="ui-stat-card p-4 sm:p-5">
               <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Players</div>
               <div className="mt-2 font-display text-2xl">{room?.players.length ?? 0}</div>
             </div>
-            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+            <div className="ui-stat-card p-4 sm:p-5">
               <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Questions</div>
               <div className="mt-2 font-display text-2xl">{room?.quiz.questionCount ?? 0}</div>
             </div>
@@ -98,15 +98,15 @@ export function HostLobbyPage() {
         </GlassPanel>
 
         <GlassPanel themeId={room?.quiz.themeId}>
-          <div className="mb-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+          <div className="mb-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-4 sm:p-5">
             <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr] md:items-center">
               <div className="flex justify-center">
-                {qrCodeUrl ? <img src={qrCodeUrl} alt={`QR code to join room ${roomPin}`} className="h-44 w-44 rounded-2xl bg-white p-3" /> : null}
+                {qrCodeUrl ? <img src={qrCodeUrl} alt={`QR code to join room ${roomPin}`} className="h-36 w-36 rounded-2xl bg-white p-3 sm:h-44 sm:w-44" /> : null}
               </div>
               <div className="space-y-3">
                 <div>
                   <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Quick Join</div>
-                  <div className="mt-2 font-display text-3xl font-bold">{roomPin}</div>
+                  <div className="mt-2 break-all font-display text-2xl font-bold sm:text-3xl">{roomPin}</div>
                 </div>
                 <p className="text-sm text-slate-300">Players can scan this QR code on their phone or use the room PIN to land straight on the join page.</p>
                 <button
@@ -121,10 +121,10 @@ export function HostLobbyPage() {
               </div>
             </div>
           </div>
-          <h2 className="font-display text-3xl font-bold">Players in the Lobby</h2>
+          <h2 className="font-display text-2xl font-bold sm:text-3xl">Players in the Lobby</h2>
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (
-              <div key={player.id} className="flex items-center justify-between rounded-[1.5rem] bg-slate-950/60 px-4 py-4">
+              <div key={player.id} className="flex flex-col gap-3 rounded-[1.5rem] bg-slate-950/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <AvatarBadge avatarId={player.avatarId} size="sm" />
                   <div>
@@ -132,7 +132,7 @@ export function HostLobbyPage() {
                     <div className="text-sm text-slate-400">{player.connected ? "Connected" : "Reconnecting"}</div>
                   </div>
                 </div>
-                <div className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-electric">
+                <div className="w-fit rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-electric">
                   Ready
                 </div>
               </div>

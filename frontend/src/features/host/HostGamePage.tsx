@@ -219,7 +219,7 @@ export function HostGamePage() {
 
   return (
     <AppShell themeId={room?.quiz.themeId}>
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className="ui-page grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
         <GlassPanel themeId={room?.quiz.themeId}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -231,7 +231,7 @@ export function HostGamePage() {
                 Question {(question?.questionIndex ?? 0) + 1} of {question?.totalQuestions ?? room?.quiz.questionCount ?? 0}
               </p>
             </div>
-            <div className="flex flex-col items-end gap-3">
+            <div className="flex flex-row items-center justify-between gap-3 lg:flex-col lg:items-end">
               <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
               <TimerRing
                 endsAt={room?.status === "question_live" ? (question?.timerEndsAt ?? null) : null}
@@ -243,15 +243,15 @@ export function HostGamePage() {
           {room?.status === "question_live" ? (
             <>
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+                <div className="ui-stat-card p-4 sm:p-5">
                   <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Answers in</div>
-                  <div className="mt-3 font-display text-4xl text-white">{answersReceived}</div>
+                  <div className="mt-3 font-display text-3xl text-white sm:text-4xl">{answersReceived}</div>
                 </div>
-                <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+                <div className="ui-stat-card p-4 sm:p-5">
                   <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Players</div>
-                  <div className="mt-3 font-display text-4xl text-white">{totalPlayers}</div>
+                  <div className="mt-3 font-display text-3xl text-white sm:text-4xl">{totalPlayers}</div>
                 </div>
-                <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+                <div className="ui-stat-card p-4 sm:p-5">
                   <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Status</div>
                   <div className="mt-3 text-xl font-bold text-white">Collecting answers</div>
                 </div>
@@ -263,13 +263,13 @@ export function HostGamePage() {
                   const percentage = Math.round((option.count / total) * 100);
 
                   return (
-                    <div key={option.optionId} className="rounded-[1.75rem] border border-white/10 bg-slate-950/65 p-5">
-                      <div className="flex items-center justify-between gap-4">
+                    <div key={option.optionId} className="rounded-[1.75rem] border border-white/10 bg-slate-950/65 p-4 sm:p-5">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Option {index + 1}</div>
-                          <div className="mt-2 text-2xl font-semibold text-white">{option.text}</div>
+                          <div className="mt-2 text-xl font-semibold text-white sm:text-2xl">{option.text}</div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <div className="font-display text-3xl text-white">{option.count}</div>
                           <div className="text-sm text-slate-300">answers</div>
                         </div>
@@ -303,14 +303,14 @@ export function HostGamePage() {
                   return (
                     <div
                       key={option.optionId}
-                      className={`rounded-[1.75rem] border p-5 ${option.isCorrect ? "border-emerald-300/40 bg-emerald-400/15" : "border-white/10 bg-slate-950/65"}`}
+                      className={`rounded-[1.75rem] border p-4 sm:p-5 ${option.isCorrect ? "border-emerald-300/40 bg-emerald-400/15" : "border-white/10 bg-slate-950/65"}`}
                     >
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <div className="text-xs uppercase tracking-[0.25em] text-slate-300">Option {index + 1}</div>
-                          <div className="mt-2 text-2xl font-semibold text-white">{option.text}</div>
+                          <div className="mt-2 text-xl font-semibold text-white sm:text-2xl">{option.text}</div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <div className="font-display text-3xl text-white">{option.count}</div>
                           <div className="text-sm text-slate-300">answers</div>
                         </div>
@@ -345,7 +345,7 @@ export function HostGamePage() {
               <button
                 type="button"
                 onClick={advanceRound}
-                className="w-full rounded-[1.75rem] bg-yellow-300 px-6 py-5 text-lg font-bold text-slate-950 transition hover:bg-yellow-200"
+                className="ui-button-primary w-full rounded-[1.75rem] px-6 py-5 text-base sm:text-lg"
               >
                 {room?.status === "reveal"
                   ? room.currentQuestionIndex >= room.quiz.questionCount - 1
@@ -361,12 +361,12 @@ export function HostGamePage() {
         </GlassPanel>
 
         <GlassPanel themeId={room?.quiz.themeId}>
-          <h2 className="font-display text-3xl font-bold text-white">
+          <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">
             {room?.status === "leaderboard" ? "Updated Rankings" : "Players"}
           </h2>
           <div className="mt-5 space-y-3">
             {(leaderboard.length ? leaderboard : room?.players ?? []).map((entry, index) => (
-              <div key={"playerId" in entry ? entry.playerId : entry.id} className="flex items-center justify-between rounded-2xl bg-slate-950/60 px-4 py-4">
+              <div key={"playerId" in entry ? entry.playerId : entry.id} className="flex flex-col gap-3 rounded-2xl bg-slate-950/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <AvatarBadge avatarId={"avatarId" in entry && entry.avatarId ? entry.avatarId : "spark"} size="sm" />
                   <div>
@@ -377,7 +377,7 @@ export function HostGamePage() {
                     ) : null}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <div className="font-display text-2xl text-white">{entry.score}</div>
                   <div className="text-sm text-slate-400">{entry.correctAnswers} correct</div>
                 </div>

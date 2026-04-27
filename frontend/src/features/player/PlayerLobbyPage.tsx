@@ -48,7 +48,7 @@ export function PlayerLobbyPage() {
 
   return (
     <AppShell themeId={room?.quiz.themeId}>
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="ui-page grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <GlassPanel themeId={room?.quiz.themeId}>
           <div className="space-y-6">
             <SectionHeading
@@ -57,15 +57,15 @@ export function PlayerLobbyPage() {
               description="You are in. The host controls when the game goes live, and your screen will jump automatically when the question starts."
             />
             <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+              <div className="ui-stat-card p-4 sm:p-5">
                 <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Room PIN</div>
-                <div className="mt-3 font-display text-4xl text-white">{room?.roomPin ?? "..."}</div>
+                <div className="mt-3 break-all font-display text-3xl text-white sm:text-4xl">{room?.roomPin ?? "..."}</div>
               </div>
-              <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+              <div className="ui-stat-card p-4 sm:p-5">
                 <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Players</div>
-                <div className="mt-3 font-display text-4xl text-white">{room?.players.length ?? 0}</div>
+                <div className="mt-3 font-display text-3xl text-white sm:text-4xl">{room?.players.length ?? 0}</div>
               </div>
-              <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+              <div className="ui-stat-card p-4 sm:p-5">
                 <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Status</div>
                 <div className="mt-3 text-xl font-bold text-white">Ready</div>
               </div>
@@ -73,10 +73,10 @@ export function PlayerLobbyPage() {
           </div>
         </GlassPanel>
         <GlassPanel themeId={room?.quiz.themeId}>
-          <h2 className="font-display text-3xl font-bold">Players in the Room</h2>
+          <h2 className="font-display text-2xl font-bold sm:text-3xl">Players in the Room</h2>
           <div className="mt-5 grid gap-3">
             {room?.players.map((player) => (
-              <div key={player.id} className="flex items-center justify-between rounded-[1.5rem] bg-slate-950/60 px-4 py-4">
+              <div key={player.id} className="flex flex-col gap-3 rounded-[1.5rem] bg-slate-950/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <AvatarBadge avatarId={player.avatarId} size="sm" />
                   <div>
@@ -84,7 +84,7 @@ export function PlayerLobbyPage() {
                     <div className="text-sm text-slate-400">Ready for the first question</div>
                   </div>
                 </div>
-                <div className={`text-sm ${player.connected ? "text-electric" : "text-amber-300"}`}>
+                <div className={`text-sm sm:text-right ${player.connected ? "text-electric" : "text-amber-300"}`}>
                   {player.connected ? "Connected" : "Reconnecting"}
                 </div>
               </div>

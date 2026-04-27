@@ -226,7 +226,7 @@ export function PlayerQuestionPage() {
 
   return (
     <AppShell themeId={themeId}>
-      <div className="mx-auto grid w-full max-w-5xl gap-6">
+      <div className="ui-page grid gap-6">
         <GlassPanel themeId={themeId}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -246,7 +246,7 @@ export function PlayerQuestionPage() {
                         : "Pick one answer before the timer runs out."}
               </p>
             </div>
-            <div className="flex flex-col items-end gap-3">
+            <div className="flex flex-row items-center justify-between gap-3 lg:flex-col lg:items-end">
               <SoundToggle enabled={soundEnabled} onToggle={toggleSound} />
               <TimerRing
                 endsAt={lockedIn || reveal ? null : (question?.timerEndsAt ?? null)}
@@ -278,14 +278,14 @@ export function PlayerQuestionPage() {
                     type="button"
                     onClick={() => submitAnswer(option.id)}
                     disabled={!!pendingOptionId}
-                    className={`rounded-[2rem] border px-6 py-8 text-left transition ${
+                    className={`rounded-[2rem] border px-5 py-6 text-left transition sm:px-6 sm:py-8 ${
                       isSelected
                         ? "border-fuchsia-300 bg-fuchsia-500/20"
                         : "border-white/10 bg-slate-950/70 hover:-translate-y-1 hover:border-cyan-300/60"
                     }`}
                   >
                     <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Option {index + 1}</div>
-                    <div className="mt-4 text-2xl font-semibold">{option.text}</div>
+                    <div className="mt-4 text-xl font-semibold sm:text-2xl">{option.text}</div>
                   </button>
                 );
               })}
@@ -293,11 +293,11 @@ export function PlayerQuestionPage() {
           ) : null}
 
           {lockedIn && !reveal ? (
-            <div className="mt-10 flex flex-col items-center justify-center rounded-[2.25rem] border border-white/10 bg-white/5 px-6 py-10 text-center">
+            <div className="mt-10 flex flex-col items-center justify-center rounded-[2.25rem] border border-white/10 bg-white/5 px-5 py-8 text-center sm:px-6 sm:py-10">
               {session ? <AvatarBadge avatarId={session.avatarId} size="lg" /> : null}
               <div className="mt-5 text-sm font-bold uppercase tracking-[0.32em] text-yellow-200">Answer locked in</div>
-              <h2 className="mt-4 font-display text-4xl font-bold text-white">Waiting for the reveal</h2>
-              <p className="mt-4 max-w-xl text-lg text-slate-200">{waitingQuote}</p>
+              <h2 className="mt-4 font-display text-3xl font-bold text-white sm:text-4xl">Waiting for the reveal</h2>
+              <p className="mt-4 max-w-xl text-base text-slate-200 sm:text-lg">{waitingQuote}</p>
               <div className="mt-6 rounded-2xl border border-fuchsia-300/25 bg-fuchsia-500/10 px-5 py-4 text-sm text-slate-200">
                 {selectedAnswerText ? `You submitted: ${selectedAnswerText}` : "Your answer is safe and hidden until the reveal."}
               </div>
@@ -307,10 +307,10 @@ export function PlayerQuestionPage() {
 
           {reveal ? (
             <div className="mt-8 space-y-6">
-              <div className={`rounded-[2.25rem] border px-6 py-8 ${revealToneClass}`}>
+              <div className={`rounded-[2.25rem] border px-5 py-6 sm:px-6 sm:py-8 ${revealToneClass}`}>
                 <div className="text-sm uppercase tracking-[0.3em] text-white/80">Round reveal</div>
-                <h2 className="mt-4 font-display text-4xl font-bold">{revealTitle}</h2>
-                <p className="mt-3 text-lg text-slate-100">
+                <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">{revealTitle}</h2>
+                <p className="mt-3 text-base text-slate-100 sm:text-lg">
                   {playerReveal?.isCorrect
                     ? `You nailed it with ${playerReveal.selectedOptionText ?? "the correct answer"}.`
                     : playerReveal?.selectedOptionText
@@ -352,7 +352,7 @@ export function PlayerQuestionPage() {
                   </div>
                   <div className="grid gap-3">
                     {leaderboard.map((entry) => (
-                      <div key={entry.playerId} className="flex items-center justify-between rounded-2xl bg-slate-950/70 px-4 py-4">
+                      <div key={entry.playerId} className="flex flex-col gap-3 rounded-2xl bg-slate-950/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
                           <AvatarBadge avatarId={entry.avatarId ?? "spark"} size="sm" />
                           <div>
@@ -360,7 +360,7 @@ export function PlayerQuestionPage() {
                             <div className="font-semibold">{entry.displayName}</div>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <div className="font-display text-2xl">{entry.score}</div>
                           <div className="text-sm text-slate-400">{entry.correctAnswers} correct</div>
                         </div>
