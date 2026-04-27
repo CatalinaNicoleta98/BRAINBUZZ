@@ -8,21 +8,30 @@ import { TimerRing } from "../../shared/components/TimerRing";
 import { useGameSounds } from "../../shared/hooks/useGameSounds";
 import { useSoundPreference } from "../../shared/hooks/useSoundPreference";
 import { socket } from "../../shared/socket/socketClient";
-import type { GameEndPayload, LeaderboardPayload, PlayerRevealPayload, QuestionRevealPayload, QuestionShowPayload, RoomState } from "../../shared/types/game";
+import type {
+  GameEndPayload,
+  LeaderboardPayload,
+  PlayerRevealPayload,
+  QuestionRevealPayload,
+  QuestionShowPayload,
+  RoomState,
+} from "../../shared/types/game";
 import { getPlayerSession } from "../../shared/utils/storage";
 
 const waitingQuotes = [
-  "Final answer energy activated.",
-  "Bold choice. Future you is judging quietly.",
-  "Confidence level: suspiciously high.",
-  "The quiz gods are reviewing your bravery.",
-  "That answer is marinating nicely.",
-  "Tiny drumroll. Massive consequences.",
+  "Answer locked in.",
+  "Waiting for the reveal.",
+  "Did you make the right move?",
+  "The host is getting the results ready.",
+  "Big quiz energy. Tiny bit of suspense.",
+  "The leaderboard is warming up backstage.",
 ];
 
 export function PlayerQuestionPage() {
   const navigate = useNavigate();
   const { roomPin = "" } = useParams();
+  const session = getPlayerSession();
+  const { enabled: soundEnabled, toggle: toggleSound } = useSoundPreference();
   const [question, setQuestion] = useState<QuestionShowPayload | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [lockedIn, setLockedIn] = useState(false);
@@ -33,8 +42,6 @@ export function PlayerQuestionPage() {
   const [waitingQuote, setWaitingQuote] = useState(waitingQuotes[0]);
   const [error, setError] = useState("");
   const [themeId, setThemeId] = useState<string | undefined>();
-  const session = getPlayerSession();
-  const { enabled: soundEnabled, toggle: toggleSound } = useSoundPreference();
 
   useGameSounds({
     questionId: question?.question.id,
@@ -50,71 +57,14 @@ export function PlayerQuestionPage() {
     }
 
     socket.emit("state:sync", { roomPin, role: "player", participantId: session.playerId }, (state: RoomState) => {
-      setThemeId(state.quiz.themeId);
-      if (state.status === "finished") {
-        navigate(`/results/${roomPin}`);
-        return;
-      }
-
-      if ((state.status === "reveal" || state.status === "leaderboard") && state.currentQuestion?.id) {
-        setQuestion({
-          roomPin,
-          questionIndex: state.currentQuestionIndex,
-          totalQuestions: state.quiz.questionCount,
-          timerEndsAt: state.timerEndsAt ?? Date.now(),
-          question: {
-            id: state.currentQuestion.id,
-            prompt: state.currentQuestion.prompt ?? "",
-            options: state.currentQuestion.options,
-            timeLimitSeconds: state.currentQuestion.timeLimitSeconds ?? 0,
-            points: state.currentQuestion.points ?? 0,
-          },
-        });
-        setPlayerReveal(state.viewerState?.latestQuestionResult ?? null);
-        setLeaderboard(
-          state.players.map((player, index) => ({
-            rank: index + 1,
-            playerId: player.id,
-            displayName: player.displayName,
-            avatarId: player.avatarId,
-            score: player.score,
-            correctAnswers: player.correctAnswers,
-            connected: player.connected,
-          })),
-        );
-        setLockedIn(state.viewerState?.roundState === "answer_locked" || state.status === "reveal");
-        setPendingOptionId(null);
-        return;
-      }
-
-      if (state.status !== "question_live" || !state.currentQuestion?.id || !state.timerEndsAt) {
-        return;
-      }
-
-      setQuestion({
-        roomPin,
-        questionIndex: state.currentQuestionIndex,
-        totalQuestions: state.quiz.questionCount,
-        timerEndsAt: state.timerEndsAt,
-        question: {
-          id: state.currentQuestion.id,
-          prompt: state.currentQuestion.prompt ?? "",
-          options: state.currentQuestion.options,
-          timeLimitSeconds: state.currentQuestion.timeLimitSeconds ?? 0,
-          points: state.currentQuestion.points ?? 0,
-        },
-      });
-      setLockedIn(state.viewerState?.roundState === "answer_locked");
-      setSelectedOptionId(state.viewerState?.selectedOptionId ?? null);
-      setReveal(null);
-      setPlayerReveal(null);
-      setLeaderboard([]);
+      hydrateFromState(state);
     });
 
     const handleQuestionShow = (payload: QuestionShowPayload) => {
       if (payload.roomPin !== roomPin) {
         return;
       }
+
       setQuestion(payload);
       setSelectedOptionId(null);
       setLockedIn(false);
@@ -136,11 +86,11 @@ export function PlayerQuestionPage() {
     const handleQuestionReveal = (payload: QuestionRevealPayload) => {
       setReveal(payload);
       setPendingOptionId(null);
+      setLockedIn(false);
     };
 
     const handlePlayerReveal = (payload: PlayerRevealPayload) => {
       setPlayerReveal(payload);
-      setLockedIn(false);
     };
 
     const handleLeaderboard = (payload: LeaderboardPayload) => {
@@ -175,8 +125,78 @@ export function PlayerQuestionPage() {
     };
   }, [navigate, roomPin, session]);
 
+  function hydrateFromState(state: RoomState) {
+    setThemeId(state.quiz.themeId);
+
+    if (state.status === "finished") {
+      navigate(`/results/${roomPin}`);
+      return;
+    }
+
+    if (!state.currentQuestion?.id) {
+      return;
+    }
+
+    const currentQuestion = state.currentQuestion;
+
+    setQuestion({
+      roomPin,
+      questionIndex: state.currentQuestionIndex,
+      totalQuestions: state.quiz.questionCount,
+      timerEndsAt: state.timerEndsAt ?? Date.now(),
+      question: {
+        id: currentQuestion.id ?? "",
+        prompt: currentQuestion.prompt ?? "",
+        options: currentQuestion.options,
+        timeLimitSeconds: currentQuestion.timeLimitSeconds ?? 0,
+        points: currentQuestion.points ?? 0,
+      },
+    });
+
+    if (state.status === "question_live") {
+      setSelectedOptionId(state.viewerState?.selectedOptionId ?? null);
+      setLockedIn(state.viewerState?.roundState === "answer_locked");
+      setReveal(null);
+      setPlayerReveal(null);
+      setLeaderboard([]);
+      return;
+    }
+
+    if (state.status === "reveal" || state.status === "leaderboard") {
+      setLockedIn(false);
+      setReveal({
+        roomPin,
+        questionIndex: state.currentQuestionIndex,
+        totalQuestions: state.quiz.questionCount,
+        question: {
+          id: currentQuestion.id ?? "",
+          prompt: currentQuestion.prompt ?? "",
+          correctOptionId: currentQuestion.correctOptionId ?? "",
+          correctOptionText:
+            currentQuestion.options.find((option) => option.id === currentQuestion.correctOptionId)?.text ?? "",
+        },
+        distribution: [],
+        nextStage: state.status === "leaderboard" ? "leaderboard" : "finished",
+      });
+      setPlayerReveal(state.viewerState?.latestQuestionResult ?? null);
+      setLeaderboard(
+        state.status === "leaderboard"
+          ? state.players.map((player, index) => ({
+              rank: index + 1,
+              playerId: player.id,
+              displayName: player.displayName,
+              avatarId: player.avatarId,
+              score: player.score,
+              correctAnswers: player.correctAnswers,
+              connected: player.connected,
+            }))
+          : [],
+      );
+    }
+  }
+
   function submitAnswer(optionId: string) {
-    if (!question || lockedIn || pendingOptionId) {
+    if (!question || lockedIn || pendingOptionId || reveal) {
       return;
     }
 
@@ -189,20 +209,41 @@ export function PlayerQuestionPage() {
     });
   }
 
+  const selectedAnswerText =
+    playerReveal?.selectedOptionText ??
+    question?.question.options.find((option) => option.id === selectedOptionId)?.text;
+  const showLeaderboard = leaderboard.length > 0;
+  const revealToneClass = playerReveal?.isCorrect
+    ? "border-emerald-300/40 bg-emerald-400/15"
+    : "border-rose-300/35 bg-rose-500/15";
+  const revealTitle = playerReveal
+    ? playerReveal.selectedOptionId
+      ? playerReveal.isCorrect
+        ? "Correct answer"
+        : "Wrong answer"
+      : "No answer submitted"
+    : "Reveal incoming";
+
   return (
     <AppShell themeId={themeId}>
-      <div className="mx-auto grid w-full max-w-4xl gap-6">
+      <div className="mx-auto grid w-full max-w-5xl gap-6">
         <GlassPanel themeId={themeId}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-berry">Question Live</p>
-              <h1 className="mt-3 font-display text-4xl font-bold">{question?.question.prompt ?? "Waiting for the host..."}</h1>
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-berry">
+                {showLeaderboard ? "Leaderboard" : reveal ? "Answer Reveal" : lockedIn ? "Answer Submitted" : "Question Live"}
+              </p>
+              <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">{question?.question.prompt ?? "Waiting for the host..."}</h1>
               <p className="mt-3 text-slate-300">
-                {lockedIn
-                  ? "Answer locked in. Hold tight for the reveal."
-                  : pendingOptionId
-                    ? "Sending your answer..."
-                    : "Choose quickly. Faster correct answers score higher."}
+                {showLeaderboard
+                  ? "Standings are updated. Get ready for the next question."
+                  : reveal
+                    ? "Your result is locked in. The host controls when the leaderboard appears."
+                    : lockedIn
+                      ? "Your answer is hidden and secure until the reveal."
+                      : pendingOptionId
+                        ? "Sending your answer..."
+                        : "Pick one answer before the timer runs out."}
               </p>
             </div>
             <div className="flex flex-col items-end gap-3">
@@ -237,12 +278,14 @@ export function PlayerQuestionPage() {
                     type="button"
                     onClick={() => submitAnswer(option.id)}
                     disabled={!!pendingOptionId}
-                    className={`rounded-3xl border px-5 py-6 text-left transition ${
-                      isSelected ? "border-berry bg-berry/20" : "border-white/10 bg-slate-950/60 hover:border-skyglow/60"
+                    className={`rounded-[2rem] border px-6 py-8 text-left transition ${
+                      isSelected
+                        ? "border-fuchsia-300 bg-fuchsia-500/20"
+                        : "border-white/10 bg-slate-950/70 hover:-translate-y-1 hover:border-cyan-300/60"
                     }`}
                   >
                     <div className="text-xs uppercase tracking-[0.3em] text-slate-400">Option {index + 1}</div>
-                    <div className="mt-3 text-lg font-semibold">{option.text}</div>
+                    <div className="mt-4 text-2xl font-semibold">{option.text}</div>
                   </button>
                 );
               })}
@@ -250,46 +293,86 @@ export function PlayerQuestionPage() {
           ) : null}
 
           {lockedIn && !reveal ? (
-            <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
-              <div className="text-sm uppercase tracking-[0.3em] text-electric">Answer Locked</div>
-              <h2 className="mt-3 font-display text-3xl font-bold">Waiting for the rest of the room...</h2>
-              <p className="mt-3 text-slate-300">{waitingQuote}</p>
-              <div className="mt-6 rounded-2xl border border-berry/30 bg-berry/10 p-4">
-                <div className="text-sm text-slate-300">Your timer is stopped. We’ll reveal the standings when the question closes.</div>
+            <div className="mt-10 flex flex-col items-center justify-center rounded-[2.25rem] border border-white/10 bg-white/5 px-6 py-10 text-center">
+              {session ? <AvatarBadge avatarId={session.avatarId} size="lg" /> : null}
+              <div className="mt-5 text-sm font-bold uppercase tracking-[0.32em] text-yellow-200">Answer locked in</div>
+              <h2 className="mt-4 font-display text-4xl font-bold text-white">Waiting for the reveal</h2>
+              <p className="mt-4 max-w-xl text-lg text-slate-200">{waitingQuote}</p>
+              <div className="mt-6 rounded-2xl border border-fuchsia-300/25 bg-fuchsia-500/10 px-5 py-4 text-sm text-slate-200">
+                {selectedAnswerText ? `You submitted: ${selectedAnswerText}` : "Your answer is safe and hidden until the reveal."}
               </div>
+              <div className="mt-4 text-sm text-slate-400">The host is getting the results ready.</div>
             </div>
           ) : null}
 
           {reveal ? (
             <div className="mt-8 space-y-6">
-              <div className="rounded-[2rem] border border-electric/25 bg-electric/10 p-6">
-                <div className="text-sm uppercase tracking-[0.3em] text-electric">Round Complete</div>
-                <h2 className="mt-3 font-display text-3xl font-bold">Leaderboard update</h2>
-                <p className="mt-3 text-slate-300">
-                  Correct answer:{" "}
-                  <span className="font-semibold text-white">
-                    {playerReveal?.correctOptionText ?? reveal.question.correctOptionText}
-                  </span>
+              <div className={`rounded-[2.25rem] border px-6 py-8 ${revealToneClass}`}>
+                <div className="text-sm uppercase tracking-[0.3em] text-white/80">Round reveal</div>
+                <h2 className="mt-4 font-display text-4xl font-bold">{revealTitle}</h2>
+                <p className="mt-3 text-lg text-slate-100">
+                  {playerReveal?.isCorrect
+                    ? `You nailed it with ${playerReveal.selectedOptionText ?? "the correct answer"}.`
+                    : playerReveal?.selectedOptionText
+                      ? `You picked ${playerReveal.selectedOptionText}.`
+                      : "You did not lock in an answer before time ran out."}
                 </p>
-              </div>
 
-              <div className="grid gap-3">
-                {leaderboard.map((entry) => (
-                  <div key={entry.playerId} className="flex items-center justify-between rounded-2xl bg-slate-950/60 px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <AvatarBadge avatarId={entry.avatarId ?? "spark"} size="sm" />
-                      <div>
-                        <div className="text-sm uppercase tracking-[0.25em] text-slate-400">#{entry.rank}</div>
-                        <div className="font-semibold">{entry.displayName}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-display text-2xl">{entry.score}</div>
-                      <div className="text-sm text-slate-400">{entry.correctAnswers} correct</div>
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.26em] text-slate-300">Result</div>
+                    <div className="mt-3 text-2xl font-bold text-white">
+                      {playerReveal?.isCorrect ? "Correct" : playerReveal?.selectedOptionId ? "Wrong" : "No Answer"}
                     </div>
                   </div>
-                ))}
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.26em] text-slate-300">Points gained</div>
+                    <div className="mt-3 text-2xl font-bold text-white">+{playerReveal?.scoreAwarded ?? 0}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.26em] text-slate-300">Total score</div>
+                    <div className="mt-3 text-2xl font-bold text-white">{playerReveal?.totalScore ?? 0}</div>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <div className="text-xs uppercase tracking-[0.26em] text-slate-300">Correct answer</div>
+                  <div className="mt-3 text-2xl font-semibold text-white">{playerReveal?.correctOptionText ?? reveal.question.correctOptionText}</div>
+                  {!playerReveal?.isCorrect && playerReveal?.selectedOptionText ? (
+                    <div className="mt-2 text-sm text-slate-200">Your answer: {playerReveal.selectedOptionText}</div>
+                  ) : null}
+                </div>
               </div>
+
+              {showLeaderboard ? (
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-sm font-bold uppercase tracking-[0.3em] text-yellow-200">Leaderboard</div>
+                    <h3 className="mt-2 font-display text-3xl font-bold text-white">Current standings</h3>
+                  </div>
+                  <div className="grid gap-3">
+                    {leaderboard.map((entry) => (
+                      <div key={entry.playerId} className="flex items-center justify-between rounded-2xl bg-slate-950/70 px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <AvatarBadge avatarId={entry.avatarId ?? "spark"} size="sm" />
+                          <div>
+                            <div className="text-sm uppercase tracking-[0.25em] text-slate-400">#{entry.rank}</div>
+                            <div className="font-semibold">{entry.displayName}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-display text-2xl">{entry.score}</div>
+                          <div className="text-sm text-slate-400">{entry.correctAnswers} correct</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-center text-sm text-slate-200">
+                  The host will show the leaderboard next.
+                </div>
+              )}
             </div>
           ) : null}
         </GlassPanel>
