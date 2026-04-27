@@ -1,9 +1,9 @@
-import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthProvider";
 import { AppShell } from "../../shared/components/AppShell";
 import { GlassPanel } from "../../shared/components/GlassPanel";
-import { useNavigate } from "react-router-dom";
+import { StatCard } from "../../shared/components/StatCard";
 
 export function HomePage() {
   const { user } = useAuth();
@@ -74,18 +74,15 @@ export function HomePage() {
         </GlassPanel>
 
         <div className="grid w-full max-w-4xl gap-3 sm:grid-cols-3">
-          <div className="ui-stat-card p-4 text-center">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">1</div>
-            <div className="mt-2 font-semibold text-white">Enter PIN</div>
-          </div>
-          <div className="ui-stat-card p-4 text-center">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">2</div>
-            <div className="mt-2 font-semibold text-white">Pick a name</div>
-          </div>
-          <div className="ui-stat-card p-4 text-center">
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">3</div>
-            <div className="mt-2 font-semibold text-white">Answer live</div>
-          </div>
+          <StatCard label="1" align="center">
+            <div className="font-semibold text-white">Enter PIN</div>
+          </StatCard>
+          <StatCard label="2" align="center">
+            <div className="font-semibold text-white">Pick a name</div>
+          </StatCard>
+          <StatCard label="3" align="center">
+            <div className="font-semibold text-white">Answer live</div>
+          </StatCard>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-3">

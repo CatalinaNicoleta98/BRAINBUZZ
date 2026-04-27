@@ -4,6 +4,7 @@ import { AppShell } from "../../shared/components/AppShell";
 import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { SectionHeading } from "../../shared/components/SectionHeading";
+import { StatCard } from "../../shared/components/StatCard";
 import { socket } from "../../shared/socket/socketClient";
 import type { RoomState } from "../../shared/types/game";
 import { getHostRoom } from "../../shared/utils/storage";
@@ -73,18 +74,15 @@ export function HostLobbyPage() {
             }
           />
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <div className="ui-stat-card p-4 sm:p-5">
-              <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Quiz</div>
-              <div className="mt-2 font-display text-2xl">{room?.quiz.title ?? "..."}</div>
-            </div>
-            <div className="ui-stat-card p-4 sm:p-5">
-              <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Players</div>
-              <div className="mt-2 font-display text-2xl">{room?.players.length ?? 0}</div>
-            </div>
-            <div className="ui-stat-card p-4 sm:p-5">
-              <div className="text-sm uppercase tracking-[0.25em] text-slate-400">Questions</div>
-              <div className="mt-2 font-display text-2xl">{room?.quiz.questionCount ?? 0}</div>
-            </div>
+            <StatCard label="Quiz">
+              <div className="font-display text-2xl text-white">{room?.quiz.title ?? "..."}</div>
+            </StatCard>
+            <StatCard label="Players">
+              <div className="font-display text-2xl text-white">{room?.players.length ?? 0}</div>
+            </StatCard>
+            <StatCard label="Questions">
+              <div className="font-display text-2xl text-white">{room?.quiz.questionCount ?? 0}</div>
+            </StatCard>
           </div>
           <button
             type="button"

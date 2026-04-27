@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
+import { StatCard } from "../../shared/components/StatCard";
 import { socket } from "../../shared/socket/socketClient";
 import type { RoomState } from "../../shared/types/game";
 import { getHostRoom, getPlayerSession } from "../../shared/utils/storage";
@@ -130,14 +131,8 @@ export function ResultsPage() {
                 <div className="mt-2 text-lg text-slate-200">{podium[0]?.score ?? 0} points</div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                  <div className="text-xs font-bold uppercase tracking-[0.26em] text-slate-400">Players</div>
-                  <div className="mt-3 font-display text-3xl text-white">{room?.players.length ?? 0}</div>
-                </div>
-                <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                  <div className="text-xs font-bold uppercase tracking-[0.26em] text-slate-400">Questions</div>
-                  <div className="mt-3 font-display text-3xl text-white">{room?.quiz.questionCount ?? 0}</div>
-                </div>
+                <StatCard label="Players" value={room?.players.length ?? 0} />
+                <StatCard label="Questions" value={room?.quiz.questionCount ?? 0} />
               </div>
             </div>
           </GlassPanel>

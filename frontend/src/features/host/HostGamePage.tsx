@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
+import { StatCard } from "../../shared/components/StatCard";
 import { SoundToggle } from "../../shared/components/SoundToggle";
 import { TimerRing } from "../../shared/components/TimerRing";
 import { useGameSounds } from "../../shared/hooks/useGameSounds";
@@ -243,18 +244,11 @@ export function HostGamePage() {
           {room?.status === "question_live" ? (
             <>
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="ui-stat-card p-4 sm:p-5">
-                  <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Answers in</div>
-                  <div className="mt-3 font-display text-3xl text-white sm:text-4xl">{answersReceived}</div>
-                </div>
-                <div className="ui-stat-card p-4 sm:p-5">
-                  <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Players</div>
-                  <div className="mt-3 font-display text-3xl text-white sm:text-4xl">{totalPlayers}</div>
-                </div>
-                <div className="ui-stat-card p-4 sm:p-5">
-                  <div className="text-xs font-bold uppercase tracking-[0.28em] text-yellow-200">Status</div>
-                  <div className="mt-3 text-xl font-bold text-white">Collecting answers</div>
-                </div>
+                <StatCard label="Answers in" value={answersReceived} />
+                <StatCard label="Players" value={totalPlayers} />
+                <StatCard label="Status">
+                  <div className="text-xl font-bold text-white">Collecting answers</div>
+                </StatCard>
               </div>
 
               <div className="mt-8 grid gap-4">
