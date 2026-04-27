@@ -23,7 +23,7 @@ dotenv.config();
 
 const corsOriginsSchema = z
   .string()
-  .default("http://localhost:5173,http://localhost:5174")
+  .default("http://localhost:5173")
   .transform((value) =>
     value
       .split(",")
@@ -34,7 +34,7 @@ const corsOriginsSchema = z
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
-  DBHOST: z.string().optional(),
+  DBHOST: z.string().min(1, "DBHOST is required."),
   CORS_ORIGINS: corsOriginsSchema,
   JWT_SECRET: z.string().min(12).default("brainbuzz-local-secret"),
 });
