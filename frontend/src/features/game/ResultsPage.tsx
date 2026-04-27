@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../../shared/components/AppShell";
 import { AvatarBadge } from "../../shared/components/AvatarBadge";
 import { GlassPanel } from "../../shared/components/GlassPanel";
-import { SectionHeading } from "../../shared/components/SectionHeading";
 import { socket } from "../../shared/socket/socketClient";
 import type { RoomState } from "../../shared/types/game";
 import { getHostRoom, getPlayerSession } from "../../shared/utils/storage";
 
 export function ResultsPage() {
+  const navigate = useNavigate();
   const { roomPin = "" } = useParams();
   const [room, setRoom] = useState<RoomState | null>(null);
+  const hostRoom = getHostRoom();
+  const isHostView = hostRoom === roomPin;
 
   useEffect(() => {
     const playerSession = getPlayerSession();
-    const hostRoom = getHostRoom();
-    const role = hostRoom === roomPin ? "host" : "player";
+    const role = isHostView ? "host" : "player";
     const participantId = role === "player" ? playerSession?.playerId : undefined;
 
     socket.emit("state:sync", { roomPin, role, participantId }, (state: RoomState) => {
@@ -33,62 +34,128 @@ export function ResultsPage() {
     return () => {
       socket.off("state:sync", handleStateSync);
     };
-  }, [roomPin]);
+  }, [isHostView, roomPin]);
 
   const podium = useMemo(() => room?.players.slice(0, 3) ?? [], [room]);
+  const podiumSlots = useMemo(() => {
+    if (!podium.length) {
+      return [];
+    }
+
+    return [podium[1], podium[0], podium[2]].filter(Boolean);
+  }, [podium]);
 
   return (
     <AppShell themeId={room?.quiz.themeId}>
-      <div className="grid gap-6">
+      <div className="space-y-6">
         <GlassPanel themeId={room?.quiz.themeId}>
-          <SectionHeading
-            eyebrow="Final Results"
-            title={room ? `${room.quiz.title} is complete.` : "Loading results..."}
-            description="The server locked in the scores. Here’s the final BrainBuzz podium and full leaderboard."
-          />
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="inline-flex rounded-full bg-yellow-300 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-950">
+                Final Podium
+              </div>
+              <h1 className="mt-4 font-display text-5xl font-bold text-white sm:text-6xl">
+                {room ? `${room.quiz.title} is complete.` : "Loading final scores..."}
+              </h1>
+              <p className="mt-3 max-w-2xl text-lg text-slate-200">
+                The server locked every score. Here is the final BrainBuzz podium and full ranking.
+              </p>
+            </div>
+
+            {isHostView ? (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/host/create?quizId=${room?.quiz.id ?? ""}`)}
+                  className="rounded-2xl bg-yellow-300 px-5 py-3 font-bold text-slate-950 transition hover:bg-yellow-200"
+                >
+                  Restart Quiz
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/host/lobby/${roomPin}`)}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white transition hover:border-white/20 hover:bg-white/10"
+                >
+                  Return to Lobby
+                </button>
+                <Link
+                  to="/host/library"
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-white transition hover:border-white/20 hover:bg-white/10"
+                >
+                  Create Another Game
+                </Link>
+              </div>
+            ) : null}
+          </div>
         </GlassPanel>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <GlassPanel themeId={room?.quiz.themeId}>
-            <h2 className="font-display text-3xl font-bold">Podium</h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {podium.map((player, index) => (
+        <GlassPanel themeId={room?.quiz.themeId}>
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr_1fr] lg:items-end">
+            {podiumSlots.map((player, index) => {
+              const actualRank = player?.id === podium[0]?.id ? 1 : player?.id === podium[1]?.id ? 2 : 3;
+              const isWinner = actualRank === 1;
+
+              return (
                 <div
-                  key={player.id}
-                  className={`rounded-[2rem] border p-5 text-center ${
-                    index === 0
-                      ? "border-gold/60 bg-gold/10"
-                      : index === 1
-                        ? "border-skyglow/40 bg-skyglow/10"
-                        : "border-berry/40 bg-berry/10"
+                  key={player?.id}
+                  className={`rounded-[2.25rem] border px-6 py-8 text-center ${
+                    isWinner
+                      ? "border-yellow-300/40 bg-yellow-300/15 lg:-translate-y-6"
+                      : actualRank === 2
+                        ? "border-cyan-300/30 bg-cyan-300/10"
+                        : "border-fuchsia-300/30 bg-fuchsia-500/10"
                   }`}
                 >
-                  <div className="text-sm uppercase tracking-[0.3em] text-slate-300">Place {index + 1}</div>
-                  <div className="mt-4 flex justify-center">
-                    <AvatarBadge avatarId={player.avatarId} size="lg" />
+                  <div className="text-sm font-bold uppercase tracking-[0.32em] text-slate-200">#{actualRank}</div>
+                  <div className="mt-5 flex justify-center">
+                    <AvatarBadge avatarId={player?.avatarId ?? "spark"} size="lg" />
                   </div>
-                  <div className="mt-4 font-display text-3xl font-bold">{player.displayName}</div>
-                  <div className="mt-2 text-2xl font-bold text-white">{player.score}</div>
-                  <div className="text-sm text-slate-300">{player.correctAnswers} correct answers</div>
+                  <div className="mt-5 font-display text-3xl font-bold text-white">{player?.displayName}</div>
+                  <div className="mt-3 font-display text-5xl font-bold text-white">{player?.score ?? 0}</div>
+                  <div className="mt-2 text-sm text-slate-200">{player?.correctAnswers ?? 0} correct answers</div>
+                  <div className={`mx-auto mt-6 h-5 rounded-full ${isWinner ? "w-28 bg-yellow-300" : actualRank === 2 ? "w-24 bg-cyan-300" : "w-20 bg-fuchsia-300"}`} />
                 </div>
-              ))}
+              );
+            })}
+          </div>
+        </GlassPanel>
+
+        <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+          <GlassPanel themeId={room?.quiz.themeId}>
+            <h2 className="font-display text-3xl font-bold text-white">Top Finish</h2>
+            <div className="mt-5 space-y-4">
+              <div className="rounded-[1.75rem] border border-yellow-300/30 bg-yellow-300/10 p-5">
+                <div className="text-xs font-bold uppercase tracking-[0.3em] text-yellow-200">Champion</div>
+                <div className="mt-3 text-3xl font-bold text-white">{podium[0]?.displayName ?? "..."}</div>
+                <div className="mt-2 text-lg text-slate-200">{podium[0]?.score ?? 0} points</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs font-bold uppercase tracking-[0.26em] text-slate-400">Players</div>
+                  <div className="mt-3 font-display text-3xl text-white">{room?.players.length ?? 0}</div>
+                </div>
+                <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs font-bold uppercase tracking-[0.26em] text-slate-400">Questions</div>
+                  <div className="mt-3 font-display text-3xl text-white">{room?.quiz.questionCount ?? 0}</div>
+                </div>
+              </div>
             </div>
           </GlassPanel>
 
           <GlassPanel themeId={room?.quiz.themeId}>
-            <h2 className="font-display text-3xl font-bold">Leaderboard</h2>
+            <h2 className="font-display text-3xl font-bold text-white">Final Leaderboard</h2>
             <div className="mt-5 space-y-3">
               {room?.players.map((player, index) => (
-                <div key={player.id} className="flex items-center justify-between rounded-2xl bg-slate-950/55 px-4 py-3">
+                <div key={player.id} className="flex items-center justify-between rounded-2xl bg-slate-950/65 px-4 py-4">
                   <div className="flex items-center gap-3">
                     <AvatarBadge avatarId={player.avatarId} size="sm" />
                     <div>
                       <div className="text-sm uppercase tracking-[0.25em] text-slate-400">#{index + 1}</div>
-                      <div className="font-semibold">{player.displayName}</div>
+                      <div className="font-semibold text-white">{player.displayName}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-display text-2xl">{player.score}</div>
+                    <div className="font-display text-2xl text-white">{player.score}</div>
                     <div className="text-sm text-slate-400">{player.correctAnswers} correct</div>
                   </div>
                 </div>

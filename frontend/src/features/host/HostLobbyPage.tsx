@@ -66,7 +66,11 @@ export function HostLobbyPage() {
           <SectionHeading
             eyebrow="Lobby"
             title={room ? `Room ${room.roomPin}` : "Connecting to room..."}
-            description="Watch players arrive live. The backend will keep this lobby synced for every connected client."
+            description={
+              room?.status === "finished"
+                ? "This game has ended. You can review the results, restart the quiz, or head back to the library."
+                : "Watch players arrive live. The backend will keep this lobby synced for every connected client."
+            }
           />
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             <div className="rounded-3xl bg-white/5 p-5">
@@ -85,10 +89,10 @@ export function HostLobbyPage() {
           <button
             type="button"
             onClick={startGame}
-            disabled={!room || room.players.length === 0}
+            disabled={!room || room.players.length === 0 || room.status === "finished"}
             className="mt-8 rounded-2xl bg-berry px-6 py-4 font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Start Live Game
+            {room?.status === "finished" ? "Game Finished" : "Start Live Game"}
           </button>
           {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
         </GlassPanel>
