@@ -20,10 +20,13 @@ const defaultQuestion = {
   points: 1000,
 };
 
-function buildQuizValidationErrors(input: {
+interface QuizDraftPayload {
   title: string;
   description: string;
   createdBy: string;
+  themeId: string;
+  coverEmoji: string;
+  visibility: "private" | "public";
   questions: Array<{
     prompt: string;
     options: string[];
@@ -31,56 +34,70 @@ function buildQuizValidationErrors(input: {
     timeLimitSeconds: number;
     points: number;
   }>;
-}) {
-  const errors: string[] = [];
+}
+
+interface QuizFieldErrors {
+  title?: string;
+  description?: string;
+  createdBy?: string;
+  questions?: string;
+}
+
+function buildQuizValidationErrors(input: QuizDraftPayload) {
+  const fieldErrors: QuizFieldErrors = {};
+  const questionErrors: string[] = [];
 
   if (input.title.length < 3) {
-    errors.push("Quiz title must be at least 3 characters.");
+    fieldErrors.title = "Quiz title must be at least 3 characters.";
   }
 
   if (input.description.length < 10) {
-    errors.push("Description must be at least 10 characters.");
+    fieldErrors.description = "Description must be at least 10 characters.";
   }
 
   if (input.createdBy.length < 2) {
-    errors.push("Your creator profile is missing a valid display name.");
+    fieldErrors.createdBy = "We could not determine the quiz creator name.";
   }
 
   if (!input.questions.length) {
-    errors.push("Add at least one question before saving.");
+    fieldErrors.questions = "Add at least one question before saving.";
   }
 
   input.questions.forEach((question, index) => {
     const questionNumber = index + 1;
 
     if (question.prompt.length < 5) {
-      errors.push(`Question ${questionNumber} needs a prompt with at least 5 characters.`);
+      questionErrors.push(`Question ${questionNumber} needs a prompt with at least 5 characters.`);
     }
 
     if (question.options.length < 2) {
-      errors.push(`Question ${questionNumber} needs at least 2 answer options.`);
+      questionErrors.push(`Question ${questionNumber} needs at least 2 answer options.`);
     }
 
     question.options.forEach((option, optionIndex) => {
       if (!option) {
-        errors.push(`Question ${questionNumber} option ${optionIndex + 1} cannot be empty.`);
+        questionErrors.push(`Question ${questionNumber} option ${optionIndex + 1} cannot be empty.`);
       }
     });
 
     if (question.correctOptionIndex < 0 || question.correctOptionIndex >= question.options.length) {
-      errors.push(`Question ${questionNumber} must have a valid correct answer selected.`);
+      questionErrors.push(`Question ${questionNumber} must have a valid correct answer selected.`);
     }
 
     if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 5 || question.timeLimitSeconds > 60) {
-      errors.push(`Question ${questionNumber} time limit must be between 5 and 60 seconds.`);
+      questionErrors.push(`Question ${questionNumber} time limit must be between 5 and 60 seconds.`);
     }
 
     if (!Number.isInteger(question.points) || question.points < 100 || question.points > 5000) {
-      errors.push(`Question ${questionNumber} points must be between 100 and 5000.`);
+      questionErrors.push(`Question ${questionNumber} points must be between 100 and 5000.`);
     }
   });
 
-  return errors;
+  if (questionErrors.length > 0) {
+    fieldErrors.questions = questionErrors[0];
+  }
+
+  return { fieldErrors, questionErrors };
 }
 
 export function CreatorStudioPage() {
@@ -96,7 +113,8 @@ export function CreatorStudioPage() {
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<QuizFieldErrors>({});
+  const [questionValidationErrors, setQuestionValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!token) {
@@ -128,7 +146,8 @@ export function CreatorStudioPage() {
   }
 
   function addQuestion() {
-    setValidationErrors([]);
+    setFieldErrors({});
+    setQuestionValidationErrors([]);
     setError("");
     setQuestions((current) => [
       ...current,
@@ -137,16 +156,19 @@ export function CreatorStudioPage() {
   }
 
   function removeQuestion(index: number) {
-    setValidationErrors([]);
+    setFieldErrors({});
+    setQuestionValidationErrors([]);
     setError("");
     setQuestions((current) => current.filter((_, questionIndex) => questionIndex !== index));
   }
 
-  function buildPayload() {
+  function buildPayload(): QuizDraftPayload {
+    const createdBy = currentUser.displayName.trim() || currentUser.id.trim() || "guest";
+
     return {
       title: title.trim(),
       description: description.trim(),
-      createdBy: currentUser.displayName.trim(),
+      createdBy,
       themeId,
       coverEmoji,
       visibility,
@@ -165,16 +187,18 @@ export function CreatorStudioPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    const nextValidationErrors = buildQuizValidationErrors(payload);
-    setValidationErrors(nextValidationErrors);
+    const { fieldErrors: nextFieldErrors, questionErrors } = buildQuizValidationErrors(payload);
+    setFieldErrors(nextFieldErrors);
+    setQuestionValidationErrors(questionErrors);
 
-    if (nextValidationErrors.length > 0) {
+    if (Object.keys(nextFieldErrors).length > 0 || questionErrors.length > 0) {
       return;
     }
 
     setSubmitting(true);
 
     try {
+      console.log("Creator quiz payload", payload);
       await createQuiz(payload, currentToken);
 
       setQuizzes(await fetchMyQuizzes(currentToken));
@@ -184,7 +208,8 @@ export function CreatorStudioPage() {
       setThemeId(themeOptions[0].id);
       setVisibility("private");
       setQuestions([{ ...defaultQuestion, options: [...defaultQuestion.options] }]);
-      setValidationErrors([]);
+      setFieldErrors({});
+      setQuestionValidationErrors([]);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save quiz.");
     } finally {
@@ -220,13 +245,14 @@ export function CreatorStudioPage() {
                     value={title}
                     onChange={(event) => {
                       setTitle(event.target.value);
-                      setValidationErrors([]);
+                      setFieldErrors((current) => ({ ...current, title: undefined }));
                       setError("");
                     }}
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                     placeholder="WebSocket Showdown"
                     required
                   />
+                  {fieldErrors.title ? <p className="mt-2 text-sm text-rose-300">{fieldErrors.title}</p> : null}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-200">Cover</label>
@@ -250,13 +276,14 @@ export function CreatorStudioPage() {
                   value={description}
                   onChange={(event) => {
                     setDescription(event.target.value);
-                    setValidationErrors([]);
+                    setFieldErrors((current) => ({ ...current, description: undefined }));
                     setError("");
                   }}
                   className="min-h-28 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                   placeholder="A fast, competitive quiz about modern web technology."
                   required
                 />
+                {fieldErrors.description ? <p className="mt-2 text-sm text-rose-300">{fieldErrors.description}</p> : null}
               </div>
 
               <div>
@@ -303,11 +330,12 @@ export function CreatorStudioPage() {
                     </div>
                     <input
                       value={question.prompt}
-                      onChange={(event) => {
-                        setValidationErrors([]);
-                        setError("");
-                        updateQuestion(index, (current) => ({ ...current, prompt: event.target.value }));
-                      }}
+                        onChange={(event) => {
+                          setFieldErrors((current) => ({ ...current, questions: undefined }));
+                          setQuestionValidationErrors([]);
+                          setError("");
+                          updateQuestion(index, (current) => ({ ...current, prompt: event.target.value }));
+                        }}
                       className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                       placeholder={`Question ${index + 1} prompt`}
                       required
@@ -318,7 +346,8 @@ export function CreatorStudioPage() {
                           key={`question-${index}-option-${optionIndex}`}
                           value={option}
                           onChange={(event) => {
-                            setValidationErrors([]);
+                            setFieldErrors((current) => ({ ...current, questions: undefined }));
+                            setQuestionValidationErrors([]);
                             setError("");
                             updateQuestion(index, (current) => ({
                               ...current,
@@ -335,7 +364,8 @@ export function CreatorStudioPage() {
                       <select
                         value={question.correctOptionIndex}
                         onChange={(event) => {
-                          setValidationErrors([]);
+                          setFieldErrors((current) => ({ ...current, questions: undefined }));
+                          setQuestionValidationErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, correctOptionIndex: Number(event.target.value) }));
                         }}
@@ -353,7 +383,8 @@ export function CreatorStudioPage() {
                         max={60}
                         value={question.timeLimitSeconds}
                         onChange={(event) => {
-                          setValidationErrors([]);
+                          setFieldErrors((current) => ({ ...current, questions: undefined }));
+                          setQuestionValidationErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, timeLimitSeconds: Number(event.target.value) }));
                         }}
@@ -366,7 +397,8 @@ export function CreatorStudioPage() {
                         step={100}
                         value={question.points}
                         onChange={(event) => {
-                          setValidationErrors([]);
+                          setFieldErrors((current) => ({ ...current, questions: undefined }));
+                          setQuestionValidationErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, points: Number(event.target.value) }));
                         }}
@@ -377,11 +409,14 @@ export function CreatorStudioPage() {
                 ))}
               </div>
 
-              {validationErrors.length ? (
+              {fieldErrors.createdBy ? <p className="text-sm text-rose-300">{fieldErrors.createdBy}</p> : null}
+              {fieldErrors.questions && !questionValidationErrors.length ? <p className="text-sm text-rose-300">{fieldErrors.questions}</p> : null}
+
+              {questionValidationErrors.length ? (
                 <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100">
                   <p className="font-semibold text-rose-200">Fix these quiz details before saving:</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
-                    {validationErrors.map((message) => (
+                    {questionValidationErrors.map((message) => (
                       <li key={message}>{message}</li>
                     ))}
                   </ul>
