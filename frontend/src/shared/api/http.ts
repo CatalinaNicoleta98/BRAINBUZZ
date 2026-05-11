@@ -2,6 +2,21 @@ import { apiBaseUrl } from "../config/runtime";
 
 const API_BASE_URL = apiBaseUrl;
 
+export interface ApiErrorDetail {
+  path?: string;
+  message?: string;
+}
+
+export class ApiError extends Error {
+  details: ApiErrorDetail[];
+
+  constructor(message: string, details: ApiErrorDetail[] = []) {
+    super(message);
+    this.name = "ApiError";
+    this.details = details;
+  }
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/api${path}`, {
     headers: {
@@ -23,7 +38,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
       ?.map((error) => error.message?.trim())
       .filter((message): message is string => Boolean(message));
 
-    throw new Error(details?.length ? details.join(" ") : body?.message ?? "Request failed.");
+    throw new ApiError(details?.length ? details.join(" ") : body?.message ?? "Request failed.", body?.errors ?? []);
   }
 
   return response.json() as Promise<T>;

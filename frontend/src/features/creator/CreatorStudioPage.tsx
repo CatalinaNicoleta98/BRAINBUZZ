@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthProvider";
 import { createQuiz } from "../../shared/api/createQuiz";
+import { ApiError } from "../../shared/api/http";
 import { fetchMyQuizzes } from "../../shared/api/quizzes";
 import { AppShell } from "../../shared/components/AppShell";
 import { GlassPanel } from "../../shared/components/GlassPanel";
@@ -36,6 +37,7 @@ export function CreatorStudioPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<QuizFieldErrors>({});
   const [questionValidationErrors, setQuestionValidationErrors] = useState<string[]>([]);
+  const [submitSummaryErrors, setSubmitSummaryErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!token) {
@@ -69,6 +71,7 @@ export function CreatorStudioPage() {
   function addQuestion() {
     setFieldErrors({});
     setQuestionValidationErrors([]);
+    setSubmitSummaryErrors([]);
     setError("");
     if (questions.length >= QUIZ_LIMITS.questions.max) {
       setFieldErrors({ questions: `A quiz can contain up to ${QUIZ_LIMITS.questions.max} questions.` });
@@ -84,6 +87,7 @@ export function CreatorStudioPage() {
   function removeQuestion(index: number) {
     setFieldErrors({});
     setQuestionValidationErrors([]);
+    setSubmitSummaryErrors([]);
     setError("");
     setQuestions((current) => current.filter((_, questionIndex) => questionIndex !== index));
   }
@@ -108,14 +112,60 @@ export function CreatorStudioPage() {
     };
   }
 
-  const payload = buildPayload();
+  function buildSubmitSummary(nextFieldErrors: QuizFieldErrors, nextQuestionErrors: string[]) {
+    return [
+      nextFieldErrors.title,
+      nextFieldErrors.description,
+      nextFieldErrors.createdBy,
+      ...nextQuestionErrors,
+    ].filter((message): message is string => Boolean(message));
+  }
+
+  function applyServerValidationErrors(issueDetails: Array<{ path?: string; message?: string }>) {
+    const nextFieldErrors: QuizFieldErrors = {};
+    const nextQuestionErrors: string[] = [];
+
+    issueDetails.forEach((issue) => {
+      const message = issue.message?.trim();
+      if (!message) {
+        return;
+      }
+
+      if (issue.path === "title") {
+        nextFieldErrors.title = message;
+        return;
+      }
+
+      if (issue.path === "description") {
+        nextFieldErrors.description = message;
+        return;
+      }
+
+      if (issue.path === "createdBy") {
+        nextFieldErrors.createdBy = message;
+        return;
+      }
+
+      nextQuestionErrors.push(message);
+    });
+
+    if (nextQuestionErrors.length > 0) {
+      nextFieldErrors.questions = nextQuestionErrors[0];
+    }
+
+    setFieldErrors(nextFieldErrors);
+    setQuestionValidationErrors(nextQuestionErrors);
+    setSubmitSummaryErrors(buildSubmitSummary(nextFieldErrors, nextQuestionErrors));
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    const payload = buildPayload();
     setError("");
     const { fieldErrors: nextFieldErrors, questionErrors } = buildQuizValidationErrors(payload);
     setFieldErrors(nextFieldErrors);
     setQuestionValidationErrors(questionErrors);
+    setSubmitSummaryErrors(buildSubmitSummary(nextFieldErrors, questionErrors));
 
     if (Object.keys(nextFieldErrors).length > 0 || questionErrors.length > 0) {
       return;
@@ -135,7 +185,11 @@ export function CreatorStudioPage() {
       setQuestions([{ ...defaultQuestion, options: [...defaultQuestion.options] }]);
       setFieldErrors({});
       setQuestionValidationErrors([]);
+      setSubmitSummaryErrors([]);
     } catch (submitError) {
+      if (submitError instanceof ApiError && submitError.details.length > 0) {
+        applyServerValidationErrors(submitError.details);
+      }
       setError(submitError instanceof Error ? submitError.message : "Unable to save quiz.");
     } finally {
       setSubmitting(false);
@@ -171,6 +225,7 @@ export function CreatorStudioPage() {
                     onChange={(event) => {
                       setTitle(event.target.value);
                       setFieldErrors((current) => ({ ...current, title: undefined }));
+                      setSubmitSummaryErrors([]);
                       setError("");
                     }}
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
@@ -203,6 +258,7 @@ export function CreatorStudioPage() {
                   onChange={(event) => {
                     setDescription(event.target.value);
                     setFieldErrors((current) => ({ ...current, description: undefined }));
+                    setSubmitSummaryErrors([]);
                     setError("");
                   }}
                   className="min-h-28 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
@@ -226,7 +282,11 @@ export function CreatorStudioPage() {
                 <label className="mb-2 block text-sm font-semibold text-slate-200">Visibility</label>
                 <select
                   value={visibility}
-                  onChange={(event) => setVisibility(event.target.value as "private" | "public")}
+                  onChange={(event) => {
+                    setVisibility(event.target.value as "private" | "public");
+                    setSubmitSummaryErrors([]);
+                    setError("");
+                  }}
                   className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                 >
                   <option value="private">Private to my account</option>
@@ -268,6 +328,7 @@ export function CreatorStudioPage() {
                         onChange={(event) => {
                           setFieldErrors((current) => ({ ...current, questions: undefined }));
                           setQuestionValidationErrors([]);
+                          setSubmitSummaryErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, prompt: event.target.value }));
                         }}
@@ -284,6 +345,7 @@ export function CreatorStudioPage() {
                           onChange={(event) => {
                             setFieldErrors((current) => ({ ...current, questions: undefined }));
                             setQuestionValidationErrors([]);
+                            setSubmitSummaryErrors([]);
                             setError("");
                             updateQuestion(index, (current) => ({
                               ...current,
@@ -303,6 +365,7 @@ export function CreatorStudioPage() {
                         onChange={(event) => {
                           setFieldErrors((current) => ({ ...current, questions: undefined }));
                           setQuestionValidationErrors([]);
+                          setSubmitSummaryErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, correctOptionIndex: Number(event.target.value) }));
                         }}
@@ -322,6 +385,7 @@ export function CreatorStudioPage() {
                         onChange={(event) => {
                           setFieldErrors((current) => ({ ...current, questions: undefined }));
                           setQuestionValidationErrors([]);
+                          setSubmitSummaryErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, timeLimitSeconds: Number(event.target.value) }));
                         }}
@@ -336,6 +400,7 @@ export function CreatorStudioPage() {
                         onChange={(event) => {
                           setFieldErrors((current) => ({ ...current, questions: undefined }));
                           setQuestionValidationErrors([]);
+                          setSubmitSummaryErrors([]);
                           setError("");
                           updateQuestion(index, (current) => ({ ...current, points: Number(event.target.value) }));
                         }}
@@ -354,6 +419,17 @@ export function CreatorStudioPage() {
                   <p className="font-semibold text-rose-200">Fix these quiz details before saving:</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
                     {questionValidationErrors.map((message) => (
+                      <li key={message}>{message}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {submitSummaryErrors.length ? (
+                <div className="rounded-2xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-50">
+                  <p className="font-semibold text-amber-100">Publish is blocked by these fields:</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {submitSummaryErrors.map((message) => (
                       <li key={message}>{message}</li>
                     ))}
                   </ul>
