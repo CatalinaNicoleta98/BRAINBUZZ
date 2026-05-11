@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthProvider";
 import { createQuiz } from "../../shared/api/createQuiz";
 import { ApiError } from "../../shared/api/http";
-import { fetchMyQuizzes } from "../../shared/api/quizzes";
+import { deleteMyQuiz, fetchMyQuizzes, updateMyQuiz } from "../../shared/api/quizzes";
 import { AppShell } from "../../shared/components/AppShell";
 import { GlassPanel } from "../../shared/components/GlassPanel";
 import { QuizCard } from "../../shared/components/QuizCard";
@@ -53,6 +53,8 @@ export function CreatorStudioPage() {
   const [fieldErrors, setFieldErrors] = useState<QuizFieldErrors>({});
   const [questionValidationErrors, setQuestionValidationErrors] = useState<string[]>([]);
   const [submitSummaryErrors, setSubmitSummaryErrors] = useState<string[]>([]);
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [deletingQuizId, setDeletingQuizId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -81,6 +83,45 @@ export function CreatorStudioPage() {
 
   function updateQuestion(index: number, updater: (question: (typeof questions)[number]) => (typeof questions)[number]) {
     setQuestions((current) => current.map((question, questionIndex) => (questionIndex === index ? updater(question) : question)));
+  }
+
+  function clearForm() {
+    setTitle("");
+    setDescription("");
+    setCoverEmoji("🧠");
+    setThemeId(themeOptions[0].id);
+    setVisibility("private");
+    setQuestions([{ ...defaultQuestion, options: [...defaultQuestion.options] }]);
+    setFieldErrors({});
+    setQuestionValidationErrors([]);
+    setSubmitSummaryErrors([]);
+    setError("");
+    setEditingQuizId(null);
+  }
+
+  function loadQuizIntoForm(quiz: QuizSummary) {
+    setTitle(quiz.title);
+    setDescription(quiz.description);
+    setCoverEmoji(quiz.coverEmoji);
+    setThemeId(quiz.themeId);
+    setVisibility(quiz.visibility);
+    setQuestions(
+      quiz.questions.map((question) => ({
+        prompt: question.prompt,
+        options: question.options.map((option) => option.text),
+        correctOptionIndex: Math.max(
+          question.options.findIndex((option) => option.id === question.correctOptionId),
+          0,
+        ),
+        timeLimitSeconds: question.timeLimitSeconds,
+        points: question.points,
+      })),
+    );
+    setFieldErrors({});
+    setQuestionValidationErrors([]);
+    setSubmitSummaryErrors([]);
+    setError("");
+    setEditingQuizId(quiz._id);
   }
 
   function addQuestion() {
@@ -194,29 +235,42 @@ export function CreatorStudioPage() {
     setSubmitting(true);
 
     try {
-      await createQuiz(payload, currentToken);
+      if (editingQuizId) {
+        await updateMyQuiz(editingQuizId, payload, currentToken);
+      } else {
+        await createQuiz(payload, currentToken);
+      }
 
       setQuizzes(await fetchMyQuizzes(currentToken));
-      setTitle("");
-      setDescription("");
-      setCoverEmoji("🧠");
-      setThemeId(themeOptions[0].id);
-      setVisibility("private");
-      setQuestions([{ ...defaultQuestion, options: [...defaultQuestion.options] }]);
-      setFieldErrors({});
-      setQuestionValidationErrors([]);
-      setSubmitSummaryErrors([]);
+      clearForm();
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.details.length > 0) {
         applyServerValidationErrors(submitError.details);
-        console.error("Quiz publish validation failed", {
-          payload,
-          issues: submitError.details,
-        });
       }
       setError(submitError instanceof Error ? submitError.message : "Unable to save quiz.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteQuiz(quizId: string) {
+    if (!window.confirm("Delete this quiz from your library? This cannot be undone.")) {
+      return;
+    }
+
+    setDeletingQuizId(quizId);
+    setError("");
+
+    try {
+      await deleteMyQuiz(quizId, currentToken);
+      setQuizzes(await fetchMyQuizzes(currentToken));
+      if (editingQuizId === quizId) {
+        clearForm();
+      }
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete quiz.");
+    } finally {
+      setDeletingQuizId(null);
     }
   }
 
@@ -241,6 +295,21 @@ export function CreatorStudioPage() {
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <GlassPanel>
             <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-200/85">
+                  {editingQuizId ? "Editing saved quiz" : "Create a new quiz"}
+                </div>
+                {editingQuizId ? (
+                  <button
+                    type="button"
+                    onClick={clearForm}
+                    className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25"
+                  >
+                    Cancel edit
+                  </button>
+                ) : null}
+              </div>
+
               <div className="grid gap-4 md:grid-cols-[1fr_140px]">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-200">Quiz title</label>
@@ -471,7 +540,7 @@ export function CreatorStudioPage() {
                 disabled={submitting}
                 className="w-full rounded-2xl bg-electric px-5 py-4 font-bold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60"
               >
-                {submitting ? "Saving quiz..." : "Save to my library"}
+                {submitting ? (editingQuizId ? "Saving changes..." : "Saving quiz...") : editingQuizId ? "Save changes" : "Save to my library"}
               </button>
             </form>
           </GlassPanel>
@@ -480,7 +549,26 @@ export function CreatorStudioPage() {
             <h2 className="font-display text-3xl font-bold">My Library</h2>
             <div className="mt-5 space-y-4">
               {quizzes.map((quiz) => (
-                <QuizCard key={quiz._id} quiz={quiz} />
+                <div key={quiz._id} className="space-y-3">
+                  <QuizCard quiz={quiz} selected={editingQuizId === quiz._id} />
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => loadQuizIntoForm(quiz)}
+                      className="flex-1 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/50 hover:bg-cyan-300/15"
+                    >
+                      {editingQuizId === quiz._id ? "Editing now" : "Edit quiz"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteQuiz(quiz._id)}
+                      disabled={deletingQuizId === quiz._id}
+                      className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-100 transition hover:border-rose-300/50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingQuizId === quiz._id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                </div>
               ))}
               {!quizzes.length ? <div className="rounded-2xl bg-white/5 p-4 text-slate-400">No saved quizzes yet. Build your first one here.</div> : null}
             </div>

@@ -63,6 +63,43 @@ export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
   });
 }
 
+async function getOwnedQuizOrThrow(quizId: string, ownerId: string) {
+  const quiz = await QuizModel.findById(quizId);
+  if (!quiz) {
+    throw new HttpError(404, "Quiz not found.");
+  }
+
+  if (quiz.ownerId?.toString() !== ownerId) {
+    throw new HttpError(403, "You can only manage quizzes from your own library.");
+  }
+
+  return quiz;
+}
+
+export async function updateQuiz(quizId: string, input: CreateQuizInput, ownerId: string) {
+  const parsed = quizPayloadSchema.parse(input);
+  const questions = buildQuestions(parsed);
+  const quiz = await getOwnedQuizOrThrow(quizId, ownerId);
+
+  quiz.set({
+    title: parsed.title,
+    description: parsed.description,
+    createdBy: parsed.createdBy,
+    themeId: parsed.themeId,
+    coverEmoji: parsed.coverEmoji,
+    visibility: parsed.visibility,
+    questions,
+  });
+
+  await quiz.save();
+  return quiz;
+}
+
+export async function deleteQuiz(quizId: string, ownerId: string) {
+  const quiz = await getOwnedQuizOrThrow(quizId, ownerId);
+  await quiz.deleteOne();
+}
+
 export async function listQuizzes(userId?: string) {
   const query = userId
     ? { $or: [{ visibility: "public" }, { ownerId: userId }] }

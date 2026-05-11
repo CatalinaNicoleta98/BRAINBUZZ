@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { createQuiz, getQuizById, listMyQuizzes, listQuizzes } from "../services/quizService.js";
+import { createQuiz, deleteQuiz, getQuizById, listMyQuizzes, listQuizzes, updateQuiz } from "../services/quizService.js";
 
 export async function createQuizController(request: Request, response: Response, next: NextFunction) {
   try {
@@ -37,6 +37,24 @@ export async function listCreatorLibraryController(_request: Request, response: 
   try {
     const quizzes = await listMyQuizzes(response.locals.userId as string);
     response.json(quizzes);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateQuizController(request: Request<{ quizId: string }>, response: Response, next: NextFunction) {
+  try {
+    const quiz = await updateQuiz(request.params.quizId, request.body, response.locals.userId as string);
+    response.json(quiz);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteQuizController(request: Request<{ quizId: string }>, response: Response, next: NextFunction) {
+  try {
+    await deleteQuiz(request.params.quizId, response.locals.userId as string);
+    response.status(204).send();
   } catch (error) {
     next(error);
   }

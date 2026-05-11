@@ -43,6 +43,10 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     throw new ApiError(details?.length ? details.join(" ") : body?.message ?? "Request failed.", body?.errors ?? []);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
