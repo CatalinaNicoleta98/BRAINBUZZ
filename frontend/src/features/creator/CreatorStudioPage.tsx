@@ -22,6 +22,21 @@ const defaultQuestion = {
   points: 1000,
 };
 
+function formatIssueMessage(issue: { path?: string; message?: string }) {
+  const message = issue.message?.trim();
+  const path = issue.path?.trim();
+
+  if (!message) {
+    return "";
+  }
+
+  if (!path) {
+    return message;
+  }
+
+  return `${path}: ${message}`;
+}
+
 export function CreatorStudioPage() {
   const { token, user, logout, loading } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
@@ -92,16 +107,21 @@ export function CreatorStudioPage() {
     setQuestions((current) => current.filter((_, questionIndex) => questionIndex !== index));
   }
 
-  function buildPayload(): QuizDraftPayload {
+  function buildPayload(form: HTMLFormElement): QuizDraftPayload {
+    const formData = new FormData(form);
     const createdBy = currentUser.displayName.trim() || currentUser.id.trim() || "guest";
+    const submittedTitle = String(formData.get("title") ?? title).trim();
+    const submittedDescription = String(formData.get("description") ?? description).trim();
+    const submittedCoverEmoji = String(formData.get("coverEmoji") ?? coverEmoji).trim() || coverEmoji;
+    const submittedVisibility = String(formData.get("visibility") ?? visibility) === "public" ? "public" : "private";
 
     return {
-      title: title.trim(),
-      description: description.trim(),
+      title: submittedTitle,
+      description: submittedDescription,
       createdBy,
       themeId,
-      coverEmoji,
-      visibility,
+      coverEmoji: submittedCoverEmoji,
+      visibility: submittedVisibility,
       questions: questions.map((question) => ({
         prompt: question.prompt.trim(),
         options: question.options.map((option) => option.trim()),
@@ -126,7 +146,7 @@ export function CreatorStudioPage() {
     const nextQuestionErrors: string[] = [];
 
     issueDetails.forEach((issue) => {
-      const message = issue.message?.trim();
+      const message = formatIssueMessage(issue);
       if (!message) {
         return;
       }
@@ -158,9 +178,9 @@ export function CreatorStudioPage() {
     setSubmitSummaryErrors(buildSubmitSummary(nextFieldErrors, nextQuestionErrors));
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = buildPayload();
+    const payload = buildPayload(event.currentTarget);
     setError("");
     const { fieldErrors: nextFieldErrors, questionErrors } = buildQuizValidationErrors(payload);
     setFieldErrors(nextFieldErrors);
@@ -189,6 +209,10 @@ export function CreatorStudioPage() {
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.details.length > 0) {
         applyServerValidationErrors(submitError.details);
+        console.error("Quiz publish validation failed", {
+          payload,
+          issues: submitError.details,
+        });
       }
       setError(submitError instanceof Error ? submitError.message : "Unable to save quiz.");
     } finally {
@@ -221,6 +245,7 @@ export function CreatorStudioPage() {
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-200">Quiz title</label>
                   <input
+                    name="title"
                     value={title}
                     onChange={(event) => {
                       setTitle(event.target.value);
@@ -238,6 +263,7 @@ export function CreatorStudioPage() {
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-200">Cover</label>
                   <select
+                    name="coverEmoji"
                     value={coverEmoji}
                     onChange={(event) => setCoverEmoji(event.target.value)}
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
@@ -254,6 +280,7 @@ export function CreatorStudioPage() {
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-200">Description</label>
                 <textarea
+                  name="description"
                   value={description}
                   onChange={(event) => {
                     setDescription(event.target.value);
@@ -281,6 +308,7 @@ export function CreatorStudioPage() {
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-200">Visibility</label>
                 <select
+                  name="visibility"
                   value={visibility}
                   onChange={(event) => {
                     setVisibility(event.target.value as "private" | "public");
@@ -418,8 +446,8 @@ export function CreatorStudioPage() {
                 <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100">
                   <p className="font-semibold text-rose-200">Fix these quiz details before saving:</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
-                    {questionValidationErrors.map((message) => (
-                      <li key={message}>{message}</li>
+                    {questionValidationErrors.map((message, index) => (
+                      <li key={`${message}-${index}`}>{message}</li>
                     ))}
                   </ul>
                 </div>
@@ -429,8 +457,8 @@ export function CreatorStudioPage() {
                 <div className="rounded-2xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-50">
                   <p className="font-semibold text-amber-100">Publish is blocked by these fields:</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
-                    {submitSummaryErrors.map((message) => (
-                      <li key={message}>{message}</li>
+                    {submitSummaryErrors.map((message, index) => (
+                      <li key={`${message}-${index}`}>{message}</li>
                     ))}
                   </ul>
                 </div>
