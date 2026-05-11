@@ -10,6 +10,7 @@ import { SectionHeading } from "../../shared/components/SectionHeading";
 import { ThemePreviewCard } from "../../shared/components/ThemePreviewCard";
 import type { QuizSummary } from "../../shared/types/game";
 import { themeOptions } from "../../shared/utils/themes";
+import { QUIZ_LIMITS, buildQuizValidationErrors, type QuizDraftPayload, type QuizFieldErrors } from "./quizDraftValidation";
 
 const emojiChoices = ["🧠", "🚀", "🎯", "🌈", "🎮", "⚡"];
 const defaultQuestion = {
@@ -19,86 +20,6 @@ const defaultQuestion = {
   timeLimitSeconds: 15,
   points: 1000,
 };
-
-interface QuizDraftPayload {
-  title: string;
-  description: string;
-  createdBy: string;
-  themeId: string;
-  coverEmoji: string;
-  visibility: "private" | "public";
-  questions: Array<{
-    prompt: string;
-    options: string[];
-    correctOptionIndex: number;
-    timeLimitSeconds: number;
-    points: number;
-  }>;
-}
-
-interface QuizFieldErrors {
-  title?: string;
-  description?: string;
-  createdBy?: string;
-  questions?: string;
-}
-
-function buildQuizValidationErrors(input: QuizDraftPayload) {
-  const fieldErrors: QuizFieldErrors = {};
-  const questionErrors: string[] = [];
-
-  if (input.title.length < 3) {
-    fieldErrors.title = "Quiz title must be at least 3 characters.";
-  }
-
-  if (input.description.length < 10) {
-    fieldErrors.description = "Description must be at least 10 characters.";
-  }
-
-  if (input.createdBy.length < 2) {
-    fieldErrors.createdBy = "We could not determine the quiz creator name.";
-  }
-
-  if (!input.questions.length) {
-    fieldErrors.questions = "Add at least one question before saving.";
-  }
-
-  input.questions.forEach((question, index) => {
-    const questionNumber = index + 1;
-
-    if (question.prompt.length < 5) {
-      questionErrors.push(`Question ${questionNumber} needs a prompt with at least 5 characters.`);
-    }
-
-    if (question.options.length < 2) {
-      questionErrors.push(`Question ${questionNumber} needs at least 2 answer options.`);
-    }
-
-    question.options.forEach((option, optionIndex) => {
-      if (!option) {
-        questionErrors.push(`Question ${questionNumber} option ${optionIndex + 1} cannot be empty.`);
-      }
-    });
-
-    if (question.correctOptionIndex < 0 || question.correctOptionIndex >= question.options.length) {
-      questionErrors.push(`Question ${questionNumber} must have a valid correct answer selected.`);
-    }
-
-    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 5 || question.timeLimitSeconds > 60) {
-      questionErrors.push(`Question ${questionNumber} time limit must be between 5 and 60 seconds.`);
-    }
-
-    if (!Number.isInteger(question.points) || question.points < 100 || question.points > 5000) {
-      questionErrors.push(`Question ${questionNumber} points must be between 100 and 5000.`);
-    }
-  });
-
-  if (questionErrors.length > 0) {
-    fieldErrors.questions = questionErrors[0];
-  }
-
-  return { fieldErrors, questionErrors };
-}
 
 export function CreatorStudioPage() {
   const { token, user, logout, loading } = useAuth();
@@ -149,6 +70,11 @@ export function CreatorStudioPage() {
     setFieldErrors({});
     setQuestionValidationErrors([]);
     setError("");
+    if (questions.length >= QUIZ_LIMITS.questions.max) {
+      setFieldErrors({ questions: `A quiz can contain up to ${QUIZ_LIMITS.questions.max} questions.` });
+      return;
+    }
+
     setQuestions((current) => [
       ...current,
       { ...defaultQuestion, options: [...defaultQuestion.options] },
@@ -198,7 +124,6 @@ export function CreatorStudioPage() {
     setSubmitting(true);
 
     try {
-      console.log("Creator quiz payload", payload);
       await createQuiz(payload, currentToken);
 
       setQuizzes(await fetchMyQuizzes(currentToken));
@@ -250,6 +175,7 @@ export function CreatorStudioPage() {
                     }}
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                     placeholder="WebSocket Showdown"
+                    maxLength={QUIZ_LIMITS.title.max}
                     required
                   />
                   {fieldErrors.title ? <p className="mt-2 text-sm text-rose-300">{fieldErrors.title}</p> : null}
@@ -281,6 +207,7 @@ export function CreatorStudioPage() {
                   }}
                   className="min-h-28 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                   placeholder="A fast, competitive quiz about modern web technology."
+                  maxLength={QUIZ_LIMITS.description.max}
                   required
                 />
                 {fieldErrors.description ? <p className="mt-2 text-sm text-rose-300">{fieldErrors.description}</p> : null}
@@ -310,10 +237,18 @@ export function CreatorStudioPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="font-display text-2xl">Questions</h2>
-                  <button type="button" onClick={addQuestion} className="rounded-2xl border border-white/10 px-4 py-2 font-semibold text-white">
+                  <button
+                    type="button"
+                    onClick={addQuestion}
+                    disabled={questions.length >= QUIZ_LIMITS.questions.max}
+                    className="rounded-2xl border border-white/10 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
                     Add question
                   </button>
                 </div>
+                <p className="text-sm text-slate-400">
+                  {questions.length} / {QUIZ_LIMITS.questions.max} questions
+                </p>
 
                 {questions.map((question, index) => (
                   <div key={`question-${index}`} className="space-y-4 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
@@ -338,6 +273,7 @@ export function CreatorStudioPage() {
                         }}
                       className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                       placeholder={`Question ${index + 1} prompt`}
+                      maxLength={QUIZ_LIMITS.prompt.max}
                       required
                     />
                     <div className="grid gap-3 md:grid-cols-2">
@@ -356,6 +292,7 @@ export function CreatorStudioPage() {
                           }}
                           className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-electric"
                           placeholder={`Option ${optionIndex + 1}`}
+                          maxLength={QUIZ_LIMITS.optionText.max}
                           required
                         />
                       ))}
