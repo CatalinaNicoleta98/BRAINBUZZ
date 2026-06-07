@@ -137,7 +137,7 @@ export function HostLobbyPage() {
                   </div>
                 </div>
                 <div className="w-fit rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-electric">
-                  Ready
+                  {player.connected ? "Joined" : "Disconnected"}
                 </div>
               </div>
             ))}
