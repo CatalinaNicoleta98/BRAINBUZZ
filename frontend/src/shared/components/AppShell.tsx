@@ -2,7 +2,6 @@ import { PropsWithChildren, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthProvider";
 import { getThemeById } from "../utils/themes";
-import { clearHostRoom, clearPlayerSession } from "../utils/storage";
 
 interface AppShellProps extends PropsWithChildren {
   themeId?: string;
@@ -19,11 +18,6 @@ export function AppShell({ children, themeId }: AppShellProps) {
     { to: "/player/join", label: "Join Game", emphasis: true },
     { to: user ? "/creator/studio" : "/creator/auth", label: user ? "Studio" : "Creator", emphasis: false },
   ];
-
-  function resetLiveState() {
-    clearHostRoom();
-    clearPlayerSession();
-  }
 
   function closeMenu() {
     setMenuOpen(false);
@@ -85,16 +79,6 @@ export function AppShell({ children, themeId }: AppShellProps) {
                   </Link>
                 );
               })}
-              <button
-                type="button"
-                onClick={() => {
-                  resetLiveState();
-                  closeMenu();
-                }}
-                className="ui-button-secondary text-sm"
-              >
-                Reset Session
-              </button>
               {user ? (
                 <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
                   {user.displayName}
@@ -118,7 +102,6 @@ export function AppShell({ children, themeId }: AppShellProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    resetLiveState();
                     closeMenu();
                     logout();
                     navigate("/");
