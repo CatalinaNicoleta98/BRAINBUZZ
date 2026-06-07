@@ -26,6 +26,56 @@ const quizPayloadSchema = z.object({
 
 export type CreateQuizInput = z.infer<typeof quizPayloadSchema>;
 
+function isQuizOwner(quiz: { ownerId?: { toString(): string } | null }, userId?: string) {
+  return Boolean(userId && quiz.ownerId?.toString() === userId);
+}
+
+function canAccessQuiz(quiz: { visibility: "private" | "public"; ownerId?: { toString(): string } | null }, userId?: string) {
+  return quiz.visibility === "public" || isQuizOwner(quiz, userId);
+}
+
+function toQuizSummary(
+  quiz: {
+    _id: { toString(): string };
+    title: string;
+    description: string;
+    createdBy: string;
+    themeId: string;
+    coverEmoji: string;
+    visibility: "private" | "public";
+    questions: Array<{
+      id: string;
+      prompt: string;
+      options: Array<{ id: string; text: string }>;
+      correctOptionId: string;
+      timeLimitSeconds: number;
+      points: number;
+    }>;
+  },
+  options?: { includeAnswers?: boolean },
+) {
+  return {
+    _id: quiz._id.toString(),
+    title: quiz.title,
+    description: quiz.description,
+    createdBy: quiz.createdBy,
+    themeId: quiz.themeId,
+    coverEmoji: quiz.coverEmoji,
+    visibility: quiz.visibility,
+    questions: quiz.questions.map((question) => ({
+      id: question.id,
+      prompt: question.prompt,
+      options: question.options.map((option) => ({
+        id: option.id,
+        text: option.text,
+      })),
+      correctOptionId: options?.includeAnswers ? question.correctOptionId : undefined,
+      timeLimitSeconds: question.timeLimitSeconds,
+      points: question.points,
+    })),
+  };
+}
+
 function buildQuestions(parsed: CreateQuizInput) {
   return parsed.questions.map((question) => {
     if (question.correctOptionIndex >= question.options.length) {
@@ -51,7 +101,7 @@ export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
   const parsed = quizPayloadSchema.parse(input);
   const questions = buildQuestions(parsed);
 
-  return QuizModel.create({
+  const quiz = await QuizModel.create({
     title: parsed.title,
     description: parsed.description,
     createdBy: parsed.createdBy,
@@ -61,6 +111,8 @@ export async function createQuiz(input: CreateQuizInput, ownerId?: string) {
     visibility: ownerId ? parsed.visibility : "public",
     questions,
   });
+
+  return toQuizSummary(quiz, { includeAnswers: true });
 }
 
 async function getOwnedQuizOrThrow(quizId: string, ownerId: string) {
@@ -92,7 +144,7 @@ export async function updateQuiz(quizId: string, input: CreateQuizInput, ownerId
   });
 
   await quiz.save();
-  return quiz;
+  return toQuizSummary(quiz, { includeAnswers: true });
 }
 
 export async function deleteQuiz(quizId: string, ownerId: string) {
@@ -105,13 +157,24 @@ export async function listQuizzes(userId?: string) {
     ? { $or: [{ visibility: "public" }, { ownerId: userId }] }
     : { visibility: "public" };
 
-  return QuizModel.find(query).sort({ createdAt: -1 }).lean();
+  const quizzes = await QuizModel.find(query).sort({ createdAt: -1 }).lean();
+  return quizzes.map((quiz) => toQuizSummary(quiz));
 }
 
-export async function getQuizById(quizId: string) {
-  return QuizModel.findById(quizId).lean();
+export async function getQuizById(quizId: string, userId?: string) {
+  const quiz = await QuizModel.findById(quizId).lean();
+  if (!quiz) {
+    return null;
+  }
+
+  if (!canAccessQuiz(quiz, userId)) {
+    throw new HttpError(403, "You are not allowed to access that private quiz.");
+  }
+
+  return toQuizSummary(quiz, { includeAnswers: isQuizOwner(quiz, userId) });
 }
 
 export async function listMyQuizzes(userId: string) {
-  return QuizModel.find({ ownerId: userId }).sort({ updatedAt: -1 }).lean();
+  const quizzes = await QuizModel.find({ ownerId: userId }).sort({ updatedAt: -1 }).lean();
+  return quizzes.map((quiz) => toQuizSummary(quiz, { includeAnswers: true }));
 }

@@ -130,7 +130,7 @@ export function getRoom(roomPin: string) {
   return liveRooms.get(roomPin);
 }
 
-export async function createRoom(quizId: string, hostName: string, hostSocketId: string, themeId?: string) {
+export async function createRoom(quizId: string, hostName: string, hostSocketId: string, themeId?: string, requestingUserId?: string) {
   const normalizedHostName = hostName.trim();
   if (!normalizedHostName) {
     throw new HttpError(400, "Host display name is required.");
@@ -139,6 +139,10 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
   const quiz = await QuizModel.findById(quizId).lean();
   if (!quiz) {
     throw new HttpError(404, "Quiz not found.");
+  }
+
+  if (quiz.visibility === "private" && quiz.ownerId?.toString() !== requestingUserId) {
+    throw new HttpError(403, "Only the owner can host that private quiz.");
   }
 
   let roomPin = createPin();

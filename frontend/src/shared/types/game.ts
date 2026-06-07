@@ -14,7 +14,7 @@ export interface QuizSummary {
     id: string;
     prompt: string;
     options: Array<{ id: string; text: string }>;
-    correctOptionId: string;
+    correctOptionId?: string;
     timeLimitSeconds: number;
     points: number;
   }>;

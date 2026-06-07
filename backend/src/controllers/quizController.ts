@@ -21,7 +21,7 @@ export async function listQuizzesController(_request: Request, response: Respons
 
 export async function getQuizController(request: Request<{ quizId: string }>, response: Response, next: NextFunction) {
   try {
-    const quiz = await getQuizById(request.params.quizId);
+    const quiz = await getQuizById(request.params.quizId, response.locals.userId as string | undefined);
     if (!quiz) {
       response.status(404).json({ message: "Quiz not found." });
       return;

@@ -14,6 +14,7 @@ import {
   startGame,
   submitAnswer,
 } from "../services/gameService.js";
+import { verifyToken } from "../services/authService.js";
 import type { CreateRoomPayload, HostActionPayload, JoinRoomPayload, SubmitAnswerPayload, SyncStatePayload } from "../types/socket.js";
 import { HttpError } from "../utils/httpError.js";
 
@@ -71,7 +72,8 @@ export function registerSocketHandlers(io: Server) {
   io.on("connection", (socket) => {
     socket.on("room:create", (payload: CreateRoomPayload, callback?: (response: unknown) => void) => {
       void handleAsync(socket, async () => {
-        const result = await createRoom(payload.quizId, payload.hostName, socket.id, payload.themeId);
+        const userId = payload.authToken ? verifyToken(payload.authToken) : undefined;
+        const result = await createRoom(payload.quizId, payload.hostName, socket.id, payload.themeId, userId);
         socket.data.role = "host";
         socket.data.roomPin = result.roomPin;
         await socket.join(result.roomPin);

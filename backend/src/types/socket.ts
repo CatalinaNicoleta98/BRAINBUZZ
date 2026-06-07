@@ -9,6 +9,7 @@ export interface CreateRoomPayload {
   quizId: string;
   hostName: string;
   themeId?: string;
+  authToken?: string;
 }
 
 export interface HostActionPayload {

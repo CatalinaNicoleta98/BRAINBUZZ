@@ -66,12 +66,16 @@ export function HostCreateRoomPage() {
     socket.on("error", handleSocketError);
 
     try {
-      socket.emit("room:create", { quizId: selectedQuizId, hostName: trimmedHostName, themeId }, (response: { roomPin: string; hostAuthToken: string }) => {
+      socket.emit(
+        "room:create",
+        { quizId: selectedQuizId, hostName: trimmedHostName, themeId, authToken: token ?? undefined },
+        (response: { roomPin: string; hostAuthToken: string }) => {
         socket.off("error", handleSocketError);
         saveHostRoom({ roomPin: response.roomPin, hostAuthToken: response.hostAuthToken });
         navigate(`/host/lobby/${response.roomPin}`);
         setLoading(false);
-      });
+        },
+      );
     } catch (submitError) {
       socket.off("error", handleSocketError);
       setError(submitError instanceof Error ? submitError.message : "Unable to create room.");

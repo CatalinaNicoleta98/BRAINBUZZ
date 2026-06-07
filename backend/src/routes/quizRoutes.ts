@@ -14,7 +14,7 @@ const quizRouter = Router();
 
 quizRouter.get("/", optionalAuth, listQuizzesController);
 quizRouter.get("/mine", requireAuth, listCreatorLibraryController);
-quizRouter.get("/:quizId", getQuizController);
+quizRouter.get("/:quizId", optionalAuth, getQuizController);
 quizRouter.post("/", requireAuth, createQuizController);
 quizRouter.put("/:quizId", requireAuth, updateQuizController);
 quizRouter.delete("/:quizId", requireAuth, deleteQuizController);
