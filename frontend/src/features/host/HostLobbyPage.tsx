@@ -14,6 +14,7 @@ export function HostLobbyPage() {
   const { roomPin = "" } = useParams();
   const [room, setRoom] = useState<RoomState | null>(null);
   const [error, setError] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState("");
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/player/join?pin=${roomPin}` : "";
   const qrCodeUrl = joinUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
@@ -55,6 +56,20 @@ export function HostLobbyPage() {
     };
   }, [navigate, roomPin]);
 
+  useEffect(() => {
+    if (!copyFeedback) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopyFeedback("");
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [copyFeedback]);
+
   function startGame() {
     const hostSession = getHostRoom();
     if (!hostSession?.hostAuthToken) {
@@ -64,6 +79,25 @@ export function HostLobbyPage() {
 
     setError("");
     socket.emit("game:start", { roomPin, hostAuthToken: hostSession.hostAuthToken });
+  }
+
+  async function copyJoinLink() {
+    if (!joinUrl) {
+      setCopyFeedback("Join link unavailable.");
+      return;
+    }
+
+    if (!navigator.clipboard?.writeText) {
+      setCopyFeedback("Copy is not supported in this browser.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      setCopyFeedback("Join link copied.");
+    } catch {
+      setCopyFeedback("Could not copy join link.");
+    }
   }
 
   return (
@@ -116,12 +150,13 @@ export function HostLobbyPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    void navigator.clipboard.writeText(joinUrl);
+                    void copyJoinLink();
                   }}
                   className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-electric/60"
                 >
                   Copy join link
                 </button>
+                {copyFeedback ? <p className="text-sm text-slate-300">{copyFeedback}</p> : null}
               </div>
             </div>
           </div>
