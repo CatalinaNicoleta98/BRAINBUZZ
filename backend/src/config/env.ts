@@ -36,7 +36,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   DBHOST: z.string().min(1, "DBHOST is required."),
   CORS_ORIGINS: corsOriginsSchema,
-  JWT_SECRET: z.string().min(12).default("brainbuzz-local-secret"),
+  JWT_SECRET: z.string().min(12, "JWT_SECRET must be at least 12 characters long."),
 });
 
 export const env = envSchema.parse({

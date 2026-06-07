@@ -102,21 +102,21 @@ The backend is the single source of truth for the live game.
 
 Create a local `.env` file in the repository root based on `.env.example`.
 
-- `MONGO_URI`
-  MongoDB Atlas connection string using the `brainbuzz_api` user. The password belongs only in the local `.env` file and should never be committed.
+- `DBHOST`
+  MongoDB connection string for your local or Atlas database. Keep real credentials only in your local `.env`.
 - `PORT`
   Backend port, default `4000`
-- `CLIENT_URL`
-  Frontend origin allowed by backend CORS
-- `VITE_API_URL`
-  Frontend REST base URL
-- `VITE_SOCKET_URL`
-  Frontend Socket.IO URL
+- `CORS_ORIGINS`
+  Comma-separated list of frontend origins allowed by backend CORS, for example `http://localhost:5173,https://your-frontend.example.com`
+- `JWT_SECRET`
+  A long random string used to sign creator auth tokens
+- `VITE_API_BASE_URL`
+  Frontend base URL for both REST requests and Socket.IO, for example `http://localhost:4000`
 
 ## Run locally
 
 1. Copy `.env.example` to `.env`
-2. Add your MongoDB Atlas password inside `MONGO_URI`
+2. Fill in `DBHOST`, `CORS_ORIGINS`, `JWT_SECRET`, and `VITE_API_BASE_URL`
 3. Install dependencies:
 
 ```bash
