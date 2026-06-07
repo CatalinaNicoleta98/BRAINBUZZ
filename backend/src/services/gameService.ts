@@ -21,6 +21,7 @@ export interface LivePlayer {
 interface LiveRoom {
   roomPin: string;
   hostSocketId: string;
+  hostAuthToken: string;
   hostName: string;
   quizId: string;
   quizTitle: string;
@@ -148,6 +149,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
   liveRooms.set(roomPin, {
     roomPin,
     hostSocketId,
+    hostAuthToken: createId("host"),
     hostName: normalizedHostName,
     quizId: quiz._id.toString(),
     quizTitle: quiz.title,
@@ -170,6 +172,7 @@ export async function createRoom(quizId: string, hostName: string, hostSocketId:
 
   return {
     roomPin,
+    hostAuthToken: liveRooms.get(roomPin)?.hostAuthToken ?? "",
     room: await buildRoomState(roomPin),
   };
 }
@@ -472,8 +475,12 @@ export function markParticipantDisconnected(socketId: string) {
   }
 }
 
-export async function reconnectHost(roomPin: string, socketId: string) {
+export async function reconnectHost(roomPin: string, socketId: string, hostAuthToken: string) {
   const room = getRoomOrThrow(roomPin);
+  if (room.hostAuthToken !== hostAuthToken) {
+    throw new HttpError(403, "Host authorization failed.");
+  }
+
   room.hostSocketId = socketId;
   return buildRoomState(roomPin);
 }

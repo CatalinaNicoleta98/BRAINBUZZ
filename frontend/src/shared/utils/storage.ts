@@ -1,12 +1,31 @@
 const HOST_ROOM_KEY = "brainbuzz_host_room";
 const PLAYER_SESSION_KEY = "brainbuzz_player_session";
 
-export function saveHostRoom(roomPin: string) {
-  localStorage.setItem(HOST_ROOM_KEY, roomPin);
+interface HostRoomSession {
+  roomPin: string;
+  hostAuthToken: string;
 }
 
-export function getHostRoom() {
-  return localStorage.getItem(HOST_ROOM_KEY);
+export function saveHostRoom(session: HostRoomSession) {
+  localStorage.setItem(HOST_ROOM_KEY, JSON.stringify(session));
+}
+
+export function getHostRoom(): HostRoomSession | null {
+  const raw = localStorage.getItem(HOST_ROOM_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<HostRoomSession>;
+    if (parsed.roomPin && parsed.hostAuthToken) {
+      return { roomPin: parsed.roomPin, hostAuthToken: parsed.hostAuthToken };
+    }
+  } catch {
+    return { roomPin: raw, hostAuthToken: "" };
+  }
+
+  return null;
 }
 
 export function clearHostRoom() {

@@ -13,16 +13,20 @@ export function ResultsPage() {
   const { roomPin = "" } = useParams();
   const [room, setRoom] = useState<RoomState | null>(null);
   const hostRoom = getHostRoom();
-  const isHostView = hostRoom === roomPin;
+  const isHostView = hostRoom?.roomPin === roomPin && Boolean(hostRoom.hostAuthToken);
 
   useEffect(() => {
     const playerSession = getPlayerSession();
     const role = isHostView ? "host" : "player";
     const participantId = role === "player" ? playerSession?.playerId : undefined;
 
-    socket.emit("state:sync", { roomPin, role, participantId }, (state: RoomState) => {
-      setRoom(state);
-    });
+    socket.emit(
+      "state:sync",
+      { roomPin, role, participantId, hostAuthToken: role === "host" ? hostRoom?.hostAuthToken : undefined },
+      (state: RoomState) => {
+        setRoom(state);
+      },
+    );
 
     const handleStateSync = (state: RoomState) => {
       if (state.roomPin === roomPin) {

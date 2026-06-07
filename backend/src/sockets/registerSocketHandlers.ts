@@ -14,7 +14,7 @@ import {
   startGame,
   submitAnswer,
 } from "../services/gameService.js";
-import type { CreateRoomPayload, JoinRoomPayload, SubmitAnswerPayload, SyncStatePayload } from "../types/socket.js";
+import type { CreateRoomPayload, HostActionPayload, JoinRoomPayload, SubmitAnswerPayload, SyncStatePayload } from "../types/socket.js";
 import { HttpError } from "../utils/httpError.js";
 
 function emitError(socket: Socket, message: string) {
@@ -35,6 +35,19 @@ async function handleAsync(socket: Socket, work: () => Promise<void>) {
 }
 
 export function registerSocketHandlers(io: Server) {
+  function assertHostAuthorized(socket: Socket, payload: HostActionPayload) {
+    const room = getRoom(payload.roomPin);
+    if (!room) {
+      throw new HttpError(404, "Room not found.");
+    }
+
+    if (room.hostSocketId !== socket.id || room.hostAuthToken !== payload.hostAuthToken) {
+      throw new HttpError(403, "Only the room host can perform that action.");
+    }
+
+    return room;
+  }
+
   async function finalizeRound(roomPin: string) {
     const revealPayload = await advanceAfterQuestion(roomPin);
     if (!revealPayload) {
@@ -87,9 +100,14 @@ export function registerSocketHandlers(io: Server) {
     socket.on("state:sync", (payload: SyncStatePayload, callback?: (response: unknown) => void) => {
       void handleAsync(socket, async () => {
         if (payload.role === "host") {
-          const state = await reconnectHost(payload.roomPin, socket.id);
+          if (!payload.hostAuthToken) {
+            throw new HttpError(401, "Missing host authorization token.");
+          }
+
+          const state = await reconnectHost(payload.roomPin, socket.id, payload.hostAuthToken);
           socket.data.role = "host";
           socket.data.roomPin = payload.roomPin;
+          socket.data.hostAuthToken = payload.hostAuthToken;
           await socket.join(payload.roomPin);
           callback?.(state);
           return;
@@ -119,34 +137,37 @@ export function registerSocketHandlers(io: Server) {
       });
     });
 
-    socket.on("game:start", (roomPin: string) => {
+    socket.on("game:start", (payload: HostActionPayload) => {
       void handleAsync(socket, async () => {
-        const questionState = await startGame(roomPin);
-        scheduleRoundTimeout(roomPin, finalizeRound);
-        io.to(roomPin).emit("game:start", { roomPin });
-        io.to(roomPin).emit("question:show", questionState);
-        io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
+        const room = assertHostAuthorized(socket, payload);
+        const questionState = await startGame(payload.roomPin);
+        scheduleRoundTimeout(payload.roomPin, finalizeRound);
+        io.to(payload.roomPin).emit("game:start", { roomPin: payload.roomPin });
+        io.to(payload.roomPin).emit("question:show", questionState);
+        io.to(payload.roomPin).emit("state:sync", await buildRoomState(room.roomPin));
       });
     });
 
-    socket.on("game:next", (roomPin: string) => {
+    socket.on("game:next", (payload: HostActionPayload) => {
       void handleAsync(socket, async () => {
-        const questionState = await nextQuestion(roomPin);
-        scheduleRoundTimeout(roomPin, finalizeRound);
-        io.to(roomPin).emit("question:show", questionState);
-        io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
+        const room = assertHostAuthorized(socket, payload);
+        const questionState = await nextQuestion(payload.roomPin);
+        scheduleRoundTimeout(payload.roomPin, finalizeRound);
+        io.to(payload.roomPin).emit("question:show", questionState);
+        io.to(payload.roomPin).emit("state:sync", await buildRoomState(room.roomPin));
       });
     });
 
-    socket.on("game:showLeaderboard", (roomPin: string) => {
+    socket.on("game:showLeaderboard", (payload: HostActionPayload) => {
       void handleAsync(socket, async () => {
-        const result = await showLeaderboard(roomPin);
+        const room = assertHostAuthorized(socket, payload);
+        const result = await showLeaderboard(payload.roomPin);
         if (result.type === "game:end") {
-          io.to(roomPin).emit("game:end", result.payload);
+          io.to(payload.roomPin).emit("game:end", result.payload);
         } else {
-          io.to(roomPin).emit("leaderboard:update", result.payload);
+          io.to(payload.roomPin).emit("leaderboard:update", result.payload);
         }
-        io.to(roomPin).emit("state:sync", await buildRoomState(roomPin));
+        io.to(payload.roomPin).emit("state:sync", await buildRoomState(room.roomPin));
       });
     });
 
@@ -173,9 +194,10 @@ export function registerSocketHandlers(io: Server) {
       });
     });
 
-    socket.on("question:timeout", (roomPin: string) => {
+    socket.on("question:timeout", (payload: HostActionPayload) => {
       void handleAsync(socket, async () => {
-        await finalizeRound(roomPin);
+        assertHostAuthorized(socket, payload);
+        await finalizeRound(payload.roomPin);
       });
     });
 

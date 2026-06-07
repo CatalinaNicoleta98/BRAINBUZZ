@@ -20,13 +20,13 @@ export function HostLobbyPage() {
     : "";
 
   useEffect(() => {
-    const localRoom = getHostRoom();
-    if (!localRoom || localRoom !== roomPin) {
+    const hostSession = getHostRoom();
+    if (!hostSession || hostSession.roomPin !== roomPin || !hostSession.hostAuthToken) {
       navigate("/host/library");
       return;
     }
 
-    socket.emit("state:sync", { roomPin, role: "host" }, (state: RoomState) => {
+    socket.emit("state:sync", { roomPin, role: "host", hostAuthToken: hostSession.hostAuthToken }, (state: RoomState) => {
       setRoom(state);
     });
 
@@ -56,8 +56,14 @@ export function HostLobbyPage() {
   }, [navigate, roomPin]);
 
   function startGame() {
+    const hostSession = getHostRoom();
+    if (!hostSession?.hostAuthToken) {
+      setError("Host session missing. Please create the room again.");
+      return;
+    }
+
     setError("");
-    socket.emit("game:start", roomPin);
+    socket.emit("game:start", { roomPin, hostAuthToken: hostSession.hostAuthToken });
   }
 
   return (

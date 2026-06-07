@@ -11,6 +11,11 @@ export interface CreateRoomPayload {
   themeId?: string;
 }
 
+export interface HostActionPayload {
+  roomPin: string;
+  hostAuthToken: string;
+}
+
 export interface SubmitAnswerPayload {
   roomPin: string;
   questionId: string;
@@ -20,5 +25,6 @@ export interface SubmitAnswerPayload {
 export interface SyncStatePayload {
   roomPin: string;
   role: "host" | "player";
+  hostAuthToken?: string;
   participantId?: string;
 }

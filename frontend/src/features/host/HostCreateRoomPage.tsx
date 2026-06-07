@@ -66,9 +66,9 @@ export function HostCreateRoomPage() {
     socket.on("error", handleSocketError);
 
     try {
-      socket.emit("room:create", { quizId: selectedQuizId, hostName: trimmedHostName, themeId }, (response: { roomPin: string }) => {
+      socket.emit("room:create", { quizId: selectedQuizId, hostName: trimmedHostName, themeId }, (response: { roomPin: string; hostAuthToken: string }) => {
         socket.off("error", handleSocketError);
-        saveHostRoom(response.roomPin);
+        saveHostRoom({ roomPin: response.roomPin, hostAuthToken: response.hostAuthToken });
         navigate(`/host/lobby/${response.roomPin}`);
         setLoading(false);
       });

@@ -17,6 +17,7 @@ import type {
   QuestionShowPayload,
   RoomState,
 } from "../../shared/types/game";
+import { getHostRoom } from "../../shared/utils/storage";
 
 export function HostGamePage() {
   const navigate = useNavigate();
@@ -37,7 +38,14 @@ export function HostGamePage() {
   });
 
   useEffect(() => {
-    socket.emit("state:sync", { roomPin, role: "host" }, (state: RoomState) => {
+    const hostSession = getHostRoom();
+    if (!hostSession?.hostAuthToken) {
+      setError("Host session missing. Please recreate the room.");
+      navigate("/host/library");
+      return;
+    }
+
+    socket.emit("state:sync", { roomPin, role: "host", hostAuthToken: hostSession.hostAuthToken }, (state: RoomState) => {
       hydrateFromState(state);
     });
 
@@ -192,10 +200,16 @@ export function HostGamePage() {
       return;
     }
 
+    const hostSession = getHostRoom();
+    if (!hostSession?.hostAuthToken) {
+      setError("Host session missing. Please recreate the room.");
+      return;
+    }
+
     setError("");
 
     if (room.status === "reveal") {
-      socket.emit("game:showLeaderboard", roomPin);
+      socket.emit("game:showLeaderboard", { roomPin, hostAuthToken: hostSession.hostAuthToken });
       return;
     }
 
@@ -206,7 +220,7 @@ export function HostGamePage() {
       return;
     }
 
-    socket.emit("game:next", roomPin);
+    socket.emit("game:next", { roomPin, hostAuthToken: hostSession.hostAuthToken });
   }
 
   const answersReceived = useMemo(() => distribution.reduce((sum, item) => sum + item.count, 0), [distribution]);
