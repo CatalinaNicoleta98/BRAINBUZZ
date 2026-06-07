@@ -91,18 +91,6 @@ export function AppShell({ children, themeId }: AppShellProps) {
                   type="button"
                   onClick={() => {
                     closeMenu();
-                    navigate("/creator/studio");
-                  }}
-                  className="ui-button-secondary text-sm"
-                >
-                  My Studio
-                </button>
-              ) : null}
-              {user ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMenu();
                     logout();
                     navigate("/");
                   }}
